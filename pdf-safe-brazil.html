@@ -453,6 +453,63 @@
   .hl-documento { background: rgba(244,114,182,0.12); border: 1px solid rgba(244,114,182,0.3); color: #f472b6; }
   .hl-generico { background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; }
 
+  /* Manual selection tooltip */
+  #addFindingTooltip {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 14px;
+    z-index: 2000;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    min-width: 300px;
+    display: none;
+  }
+  #addFindingTooltip .tooltip-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  #addFindingTooltip .tooltip-selected {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin-bottom: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+    max-width: 100%;
+  }
+  #addFindingTooltip select,
+  #addFindingTooltip input[type="text"] {
+    width: 100%;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  #addFindingTooltip select:focus,
+  #addFindingTooltip input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  #addFindingTooltip .tooltip-actions {
+    display: flex;
+    gap: 8px;
+  }
+
   /* Redacted text */
   .redacted {
     background: var(--surface3);
@@ -798,6 +855,30 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Manual finding tooltip -->
+<div id="addFindingTooltip">
+  <div class="tooltip-header">✏️ Adicionar como dado sensível</div>
+  <div class="tooltip-selected" id="tooltipSelectedText"></div>
+  <select id="tooltipCategory">
+    <option value="cpf">🪪 CPF</option>
+    <option value="cnpj">🏢 CNPJ</option>
+    <option value="rg">🆔 RG</option>
+    <option value="nome">👤 Nome</option>
+    <option value="endereco">📍 Endereço</option>
+    <option value="email">📧 E-mail</option>
+    <option value="telefone">📞 Telefone</option>
+    <option value="financeiro">💰 Financeiro</option>
+    <option value="data">📅 Data</option>
+    <option value="documento">📋 Documento</option>
+    <option value="manual" selected>✏️ Outro</option>
+  </select>
+  <input type="text" id="tooltipReplacement" placeholder="Substituir por (padrão: [OCULTADO])">
+  <div class="tooltip-actions">
+    <button class="btn btn-primary" style="flex:1;padding:8px 12px;" onclick="confirmManualFinding()">➕ Adicionar</button>
+    <button class="btn" style="padding:8px 14px;" onclick="hideAddFindingTooltip()">Cancelar</button>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════
 //  REGEX DATABASE — Brazilian PII Detection
@@ -810,6 +891,13 @@ const REGEX_DB = [
   { id: 'cpf_nums', cat: 'cpf', label: 'CPF', hl: 'hl-cpf',
     regex: /(?:CPF|cpf|C\.?P\.?F\.?)\s*[:–\-nº°]?\s*(\d{3}\.?\d{3}\.?\d{3}[\-.]?\d{2})/gi,
     replacement: 'CPF: XXX.XXX.XXX-XX', fullMatch: true },
+  { id: 'cpf_bare_dash', cat: 'cpf', label: 'CPF', hl: 'hl-cpf',
+    regex: /\b\d{9}-\d{2}\b/g,
+    replacement: 'XXX.XXX.XXX-XX' },
+  { id: 'cpf_plain', cat: 'cpf', label: 'CPF', hl: 'hl-cpf',
+    regex: /\b\d{11}\b/g,
+    replacement: 'XXX.XXX.XXX-XX',
+    validate: (m) => isValidCPF(m) },
 
   // ── CNPJ ──
   { id: 'cnpj', cat: 'cnpj', label: 'CNPJ', hl: 'hl-cnpj',
@@ -818,6 +906,13 @@ const REGEX_DB = [
   { id: 'cnpj_label', cat: 'cnpj', label: 'CNPJ', hl: 'hl-cnpj',
     regex: /(?:CNPJ|cnpj|C\.?N\.?P\.?J\.?)\s*[:–\-nº°]?\s*(\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})/gi,
     replacement: 'CNPJ: XX.XXX.XXX/XXXX-XX', fullMatch: true },
+  { id: 'cnpj_slash_nodots', cat: 'cnpj', label: 'CNPJ', hl: 'hl-cnpj',
+    regex: /\b\d{8}\/\d{4}-\d{2}\b/g,
+    replacement: 'XX.XXX.XXX/XXXX-XX' },
+  { id: 'cnpj_plain', cat: 'cnpj', label: 'CNPJ', hl: 'hl-cnpj',
+    regex: /\b\d{14}\b/g,
+    replacement: 'XX.XXX.XXX/XXXX-XX',
+    validate: (m) => isValidCNPJ(m) },
 
   // ── RG ──
   { id: 'rg_label', cat: 'rg', label: 'RG', hl: 'hl-rg',
@@ -1037,7 +1132,35 @@ const CATEGORIES = {
   financeiro: { label: 'Financeiro', color: '#f59e0b',        icon: '💰' },
   data:       { label: 'Datas',      color: '#6366f1',        icon: '📅' },
   documento:  { label: 'Documentos', color: '#f472b6',        icon: '📋' },
+  manual:     { label: 'Manual',     color: '#94a3b8',        icon: '✏️' },
 };
+
+// ═══════════════════════════════════════════════════
+//  CPF / CNPJ VALIDATORS (reduce false positives on bare numbers)
+// ═══════════════════════════════════════════════════
+function isValidCPF(cpf) {
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += +d[i] * (10 - i);
+  let r = (s * 10) % 11; if (r >= 10) r = 0;
+  if (r !== +d[9]) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += +d[i] * (11 - i);
+  r = (s * 10) % 11; if (r >= 10) r = 0;
+  return r === +d[10];
+}
+
+function isValidCNPJ(cnpj) {
+  const d = cnpj.replace(/\D/g, '');
+  if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+  const calc = (n) => {
+    let s = 0, w = n + 1;
+    for (let i = 0; i < n; i++) { if (--w < 2) w = 9; s += +d[i] * w; }
+    const r = s % 11; return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === +d[12] && calc(13) === +d[13];
+}
 
 // ═══════════════════════════════════════════════════
 //  APP STATE
@@ -1258,7 +1381,7 @@ function renderSummary() {
 
   const colorMap = { cpf: 'sc-danger', cnpj: 'sc-danger', rg: 'sc-warn', nome: 'sc-info',
     endereco: 'sc-info', cep: 'sc-success', telefone: 'sc-warn', email: 'sc-warn',
-    financeiro: 'sc-danger', data: 'sc-info', documento: 'sc-warn' };
+    financeiro: 'sc-danger', data: 'sc-info', documento: 'sc-warn', manual: 'sc-info' };
 
   bar.innerHTML = `
     <div class="summary-card">
@@ -1410,6 +1533,7 @@ function renderFindings() {
     financeiro: 'background:rgba(245,158,11,0.12);color:#f59e0b;',
     data: 'background:rgba(99,102,241,0.12);color:#6366f1;',
     documento: 'background:rgba(244,114,182,0.12);color:#f472b6;',
+    manual:    'background:rgba(148,163,184,0.12);color:#94a3b8;',
   };
 
   // --- Active findings grouped by category ---
@@ -1590,6 +1714,101 @@ function showToast(msg, type = 'success') {
   t.innerHTML = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ═══════════════════════════════════════════════════
+//  MANUAL SELECTION — add unlisted sensitive data
+// ═══════════════════════════════════════════════════
+let pendingSelectionText = null;
+
+document.getElementById('contentDisplay').addEventListener('mouseup', () => {
+  setTimeout(() => {
+    if (isSanitized || currentView !== 'highlighted') return;
+    const sel = window.getSelection();
+    const selectedText = sel.toString().trim();
+    if (!selectedText || selectedText.length < 2) return;
+    const display = document.getElementById('contentDisplay');
+    if (!display.contains(sel.anchorNode)) return;
+    try {
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      showAddFindingTooltip(rect, selectedText);
+    } catch(e) {}
+  }, 10);
+});
+
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('#addFindingTooltip')) hideAddFindingTooltip();
+});
+
+function showAddFindingTooltip(rect, text) {
+  const tooltip = document.getElementById('addFindingTooltip');
+  document.getElementById('tooltipSelectedText').textContent =
+    text.length > 60 ? text.substring(0, 60) + '…' : text;
+  document.getElementById('tooltipReplacement').value = '[OCULTADO]';
+  document.getElementById('tooltipCategory').value = 'manual';
+
+  let top = rect.bottom + window.scrollY + 8;
+  let left = rect.left + window.scrollX;
+  const tw = 310;
+  if (left + tw > window.innerWidth - 16) left = window.innerWidth - tw - 16;
+  if (left < 8) left = 8;
+
+  tooltip.style.top = top + 'px';
+  tooltip.style.left = left + 'px';
+  tooltip.style.display = 'block';
+  pendingSelectionText = text;
+}
+
+function hideAddFindingTooltip() {
+  document.getElementById('addFindingTooltip').style.display = 'none';
+  pendingSelectionText = null;
+}
+
+function confirmManualFinding() {
+  if (!pendingSelectionText) return;
+  const cat = document.getElementById('tooltipCategory').value;
+  const replacement = document.getElementById('tooltipReplacement').value.trim() || '[OCULTADO]';
+  const hlMap = {
+    cpf: 'hl-cpf', cnpj: 'hl-cnpj', rg: 'hl-rg', nome: 'hl-nome',
+    endereco: 'hl-endereco', email: 'hl-email', telefone: 'hl-telefone',
+    financeiro: 'hl-financeiro', data: 'hl-data', documento: 'hl-documento',
+    manual: 'hl-generico'
+  };
+  const labelMap = {
+    cpf: 'CPF', cnpj: 'CNPJ', rg: 'RG', nome: 'Nome', endereco: 'Endereço',
+    email: 'E-mail', telefone: 'Telefone', financeiro: 'Financeiro',
+    data: 'Data', documento: 'Documento', manual: 'Manual'
+  };
+  const text = pendingSelectionText;
+  let added = 0, searchStart = 0;
+  while (true) {
+    const idx = markdownText.indexOf(text, searchStart);
+    if (idx === -1) break;
+    const overlaps = findings.some(f => idx < f.index + f.length && f.index < idx + text.length);
+    if (!overlaps) {
+      findings.push({
+        id: 'manual_' + Date.now() + '_' + added,
+        cat, label: labelMap[cat] || cat,
+        hl: hlMap[cat] || 'hl-generico',
+        value: text, index: idx, length: text.length,
+        replacement, manual: true
+      });
+      added++;
+      activeFilters.add(cat);
+    }
+    searchStart = idx + text.length;
+  }
+  hideAddFindingTooltip();
+  if (added > 0) {
+    updateHeaderStats();
+    renderSummary();
+    renderContent();
+    renderFindings();
+    renderFilters();
+    showToast(`✏️ ${added} ocorrência${added > 1 ? 's' : ''} adicionada${added > 1 ? 's' : ''} manualmente`, 'success');
+  } else {
+    showToast('Texto não encontrado no documento ou já mapeado', 'danger');
+  }
 }
 </script>
 </body>
