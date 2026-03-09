@@ -1747,9 +1747,10 @@ function showAddFindingTooltip(rect, text) {
   document.getElementById('tooltipReplacement').value = '[OCULTADO]';
   document.getElementById('tooltipCategory').value = 'manual';
 
-  let top = rect.bottom + window.scrollY + 8;
-  let left = rect.left + window.scrollX;
+  let top = rect.bottom + 8;
+  let left = rect.left;
   const tw = 310;
+  if (top + 200 > window.innerHeight) top = rect.top - 8 - 200;
   if (left + tw > window.innerWidth - 16) left = window.innerWidth - tw - 16;
   if (left < 8) left = 8;
 
