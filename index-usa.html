@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PDF Safe — Sanitizador de Dados Sensíveis</title>
+<title>PDF Safe — US PII Sanitizer</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -136,7 +136,7 @@
     letter-spacing: -0.3px;
   }
 
-  /* Flag navigation */
+  /* Flag nav */
   .flag-nav {
     display: flex;
     align-items: center;
@@ -163,7 +163,7 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 2px rgba(255,107,53,0.2);
   }
-  .flag-icon {
+  .flag-link .flag-icon {
     width: 100%; height: 100%;
     border-radius: 3px;
   }
@@ -721,17 +721,9 @@
       <span class="logo-text">PDF Safe</span>
     </a>
 
-    <!-- Flag navigation -->
+    <!-- Flag Navigation -->
     <nav class="flag-nav" aria-label="Language">
-      <a href="index.html" class="flag-link active" title="Português (BR)">
-        <svg class="flag-icon" viewBox="0 0 22 16" xmlns="http://www.w3.org/2000/svg">
-          <rect width="22" height="16" fill="#009B3A"/>
-          <polygon points="11,2 20,8 11,14 2,8" fill="#FEDF00"/>
-          <circle cx="11" cy="8" r="3.6" fill="#002776"/>
-          <path d="M7.7 7.2 A3.6 3.6 0 0 1 14.3 7.2" stroke="#fff" stroke-width="0.9" fill="none" stroke-linecap="round"/>
-        </svg>
-      </a>
-      <a href="index-usa.html" class="flag-link" title="English (US)">
+      <span class="flag-link active" aria-current="true" title="English (US)">
         <svg class="flag-icon" viewBox="0 0 22 16" xmlns="http://www.w3.org/2000/svg">
           <rect width="22" height="16" fill="#B22234"/>
           <rect y="1.23" width="22" height="1.23" fill="#fff"/>
@@ -753,6 +745,14 @@
             <circle cx="1.0" cy="7.74" r="0.3"/><circle cx="2.2" cy="7.74" r="0.3"/><circle cx="3.4" cy="7.74" r="0.3"/><circle cx="4.6" cy="7.74" r="0.3"/><circle cx="5.8" cy="7.74" r="0.3"/><circle cx="7.0" cy="7.74" r="0.3"/>
           </g>
         </svg>
+      </span>
+      <a href="index.html" class="flag-link" title="Português (Brasil)">
+        <svg class="flag-icon" viewBox="0 0 22 16" xmlns="http://www.w3.org/2000/svg">
+          <rect width="22" height="16" fill="#009B3A"/>
+          <polygon points="11,2 20,8 11,14 2,8" fill="#FEDF00"/>
+          <circle cx="11" cy="8" r="3.6" fill="#002776"/>
+          <path d="M7.7 7.2 A3.6 3.6 0 0 1 14.3 7.2" stroke="#fff" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+        </svg>
       </a>
     </nav>
   </div>
@@ -763,25 +763,25 @@
   <section class="hero">
     <div class="hero-badge">
       <div class="hero-badge-dot"></div>
-      Processamento 100% local
+      100% local processing
     </div>
 
     <h1 class="hero-title">
-      <span class="hero-title-gradient">Proteja seus dados<br>antes de compartilhar.</span>
+      <span class="hero-title-gradient">Protect your data<br>before sharing.</span>
     </h1>
 
     <p class="hero-subtitle">
-      Sanitize informações sensíveis de documentos PDF diretamente no seu navegador.
-      Nenhum arquivo é enviado a servidores — tudo acontece na sua máquina.
+      Sanitize sensitive information from PDF documents directly in your browser.
+      No file is ever sent to any server — everything happens on your machine.
     </p>
 
     <div class="hero-actions">
-      <a href="pdf-safe-brazil.html" class="btn-primary">
-        Acessar agora
+      <a href="pdf-safe-usa.html" class="btn-primary">
+        Get Started
         <span class="btn-arrow">→</span>
       </a>
-      <a href="#como-funciona" class="btn-secondary">
-        Como funciona
+      <a href="#how-it-works" class="btn-secondary">
+        How it works
       </a>
     </div>
 
@@ -790,7 +790,7 @@
         <path d="M8 1.5L2 4v4c0 3.3 2.5 6.4 6 7.1C12.5 14.4 14 11.3 14 8V4L8 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
         <path d="M5.5 8l1.8 1.8L10.5 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      Sem servidor. Sem upload. Sem rastreamento.
+      No server. No upload. No tracking.
     </p>
   </section>
 
@@ -798,11 +798,11 @@
   <section class="privacy-strip">
     <div class="privacy-strip-inner">
       <div class="privacy-strip-icon">🛡️</div>
-      <h2 class="privacy-strip-title">Seus dados nunca saem do seu computador</h2>
+      <h2 class="privacy-strip-title">Your data never leaves your computer</h2>
       <p class="privacy-strip-desc">
-        O PDF Safe roda inteiramente no seu navegador usando tecnologia WebAssembly.
-        Nenhum byte do seu documento é enviado para qualquer servidor externo.
-        Seus arquivos permanecem sob seu controle total.
+        PDF Safe runs entirely in your browser using WebAssembly technology.
+        Not a single byte of your document is sent to any external server.
+        Your files remain under your full control.
       </p>
       <div class="privacy-strip-badges">
         <span class="privacy-badge">
@@ -811,11 +811,11 @@
         </span>
         <span class="privacy-badge">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Sem conta necessária
+          No account required
         </span>
         <span class="privacy-badge">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Funciona offline
+          Works offline
         </span>
         <span class="privacy-badge">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -826,82 +826,82 @@
   </section>
 
   <!-- ─── FEATURES ─── -->
-  <section class="features" id="funcionalidades">
+  <section class="features" id="features">
     <div class="section-header reveal">
-      <span class="section-tag">Funcionalidades</span>
-      <h2 class="section-title">Tudo que você precisa para proteger documentos</h2>
-      <p class="section-desc">Detecção inteligente e remoção precisa de dados sensíveis brasileiros em PDFs de qualquer origem.</p>
+      <span class="section-tag">Features</span>
+      <h2 class="section-title">Everything you need to protect documents</h2>
+      <p class="section-desc">Smart detection and precise removal of US sensitive data from PDFs of any origin.</p>
     </div>
 
     <div class="features-grid">
       <div class="feature-card feature-card-1 reveal">
         <div class="feature-icon icon-orange">🔍</div>
-        <h3 class="feature-title">Detecção Automática</h3>
-        <p class="feature-desc">Identifica automaticamente CPF, CNPJ, RG, CNH, passaporte, e-mail, telefone, CEP, endereço e dados bancários com alta precisão.</p>
+        <h3 class="feature-title">Auto Detection</h3>
+        <p class="feature-desc">Automatically identifies SSN, EIN, Driver's License, passport, email, phone, ZIP code, address, and financial data with high accuracy.</p>
       </div>
 
       <div class="feature-card feature-card-2 reveal">
         <div class="feature-icon icon-purple">✏️</div>
-        <h3 class="feature-title">Revisão Manual</h3>
-        <p class="feature-desc">Revise e ajuste cada detecção antes de aplicar. Adicione ou remova marcações manualmente com controle total sobre o resultado.</p>
+        <h3 class="feature-title">Manual Review</h3>
+        <p class="feature-desc">Review and adjust each detection before applying. Add or remove highlights manually with full control over the result.</p>
       </div>
 
       <div class="feature-card feature-card-3 reveal">
         <div class="feature-icon icon-green">🛡️</div>
-        <h3 class="feature-title">100% Privado</h3>
-        <p class="feature-desc">Todo o processamento ocorre localmente no seu navegador. Nenhum dado, nenhum arquivo, nenhuma informação é enviada a qualquer servidor.</p>
+        <h3 class="feature-title">100% Private</h3>
+        <p class="feature-desc">All processing happens locally in your browser. No data, no file, no information is sent to any server.</p>
       </div>
 
       <div class="feature-card feature-card-4 reveal">
         <div class="feature-icon icon-cyan">📋</div>
-        <h3 class="feature-title">Dados Brasileiros</h3>
-        <p class="feature-desc">Especializado em documentos brasileiros: CPF com e sem pontuação, CNPJ, RG estadual, CEP, PIX, dados do SUS e muito mais.</p>
+        <h3 class="feature-title">US Documents</h3>
+        <p class="feature-desc">Specialized in US documents: SSN with and without formatting, EIN, driver's licenses, Medicare, NPI, credit cards, and more.</p>
       </div>
 
       <div class="feature-card feature-card-5 reveal">
         <div class="feature-icon icon-red">⚡</div>
-        <h3 class="feature-title">Processamento Rápido</h3>
-        <p class="feature-desc">Análise instantânea utilizando PDF.js diretamente no navegador, sem filas de espera nem tempo de upload.</p>
+        <h3 class="feature-title">Fast Processing</h3>
+        <p class="feature-desc">Instant analysis using PDF.js directly in the browser, no queues or upload time.</p>
       </div>
 
       <div class="feature-card feature-card-6 reveal">
         <div class="feature-icon icon-blue">💾</div>
-        <h3 class="feature-title">Export Seguro</h3>
-        <p class="feature-desc">Baixe o PDF sanitizado com os dados sensíveis substituídos por blocos opacos. Formato padrão, compatível com qualquer leitor.</p>
+        <h3 class="feature-title">Secure Export</h3>
+        <p class="feature-desc">Download the sanitized document with sensitive data replaced. Standard format, compatible with any reader.</p>
       </div>
     </div>
   </section>
 
   <!-- ─── HOW IT WORKS ─── -->
-  <section class="how-it-works" id="como-funciona">
+  <section class="how-it-works" id="how-it-works">
     <div class="section-header reveal">
-      <span class="section-tag">Passo a passo</span>
-      <h2 class="section-title">Como funciona</h2>
-      <p class="section-desc">Três passos simples para proteger seus documentos antes de compartilhá-los.</p>
+      <span class="section-tag">Step by step</span>
+      <h2 class="section-title">How it works</h2>
+      <p class="section-desc">Three simple steps to protect your documents before sharing.</p>
     </div>
 
     <div class="steps">
       <div class="step reveal">
         <div class="step-num">01</div>
         <div class="step-content">
-          <h3 class="step-title">Abra o documento</h3>
-          <p class="step-desc">Arraste ou selecione o arquivo PDF no seu computador. O arquivo é carregado diretamente no navegador — nenhum upload acontece.</p>
+          <h3 class="step-title">Open the document</h3>
+          <p class="step-desc">Drag or select the PDF file from your computer. The file is loaded directly in the browser — no upload happens.</p>
         </div>
       </div>
 
       <div class="step reveal">
         <div class="step-num">02</div>
         <div class="step-content">
-          <h3 class="step-title">Revise as detecções</h3>
-          <p class="step-desc">O sistema identifica automaticamente os dados sensíveis e exibe uma lista para revisão. Marque ou desmarque os itens conforme necessário.</p>
+          <h3 class="step-title">Review the detections</h3>
+          <p class="step-desc">The system automatically identifies sensitive data and displays a list for review. Check or uncheck items as needed.</p>
         </div>
       </div>
 
       <div class="step reveal">
         <div class="step-num">03</div>
         <div class="step-content">
-          <h3 class="step-title">Baixe o PDF sanitizado</h3>
-          <p class="step-desc">Com um clique, gere e baixe o documento com todos os dados sensíveis selecionados ocultados permanentemente.</p>
+          <h3 class="step-title">Download the sanitized PDF</h3>
+          <p class="step-desc">With one click, generate and download the document with all selected sensitive data permanently hidden.</p>
         </div>
       </div>
     </div>
@@ -911,11 +911,11 @@
   <section class="cta-section">
     <div class="cta-card reveal">
       <div class="cta-glow"></div>
-      <h2 class="cta-title">Pronto para proteger<br>seus documentos?</h2>
-      <p class="cta-desc">Gratuito, sem cadastro, sem servidor. Comece agora diretamente no navegador.</p>
+      <h2 class="cta-title">Ready to protect<br>your documents?</h2>
+      <p class="cta-desc">Free, no registration, no server. Start now directly in your browser.</p>
       <div class="cta-actions">
-        <a href="pdf-safe-brazil.html" class="btn-primary">
-          Acessar PDF Safe
+        <a href="pdf-safe-usa.html" class="btn-primary">
+          Open PDF Safe
           <span class="btn-arrow">→</span>
         </a>
       </div>
@@ -923,7 +923,7 @@
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M8 1.5L2 4v4c0 3.3 2.5 6.4 6 7.1C12.5 14.4 14 11.3 14 8V4L8 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
         </svg>
-        Nenhum dado é enviado ao servidor. Tudo roda na sua máquina.
+        No data is sent to the server. Everything runs on your machine.
       </p>
     </div>
   </section>
@@ -940,7 +940,7 @@
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 1.5L2 4v4c0 3.3 2.5 6.4 6 7.1C12.5 14.4 14 11.3 14 8V4L8 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
       </svg>
-      Seus dados ficam na sua máquina. Sempre.
+      Your data stays on your machine. Always.
     </span>
   </div>
 </footer>
