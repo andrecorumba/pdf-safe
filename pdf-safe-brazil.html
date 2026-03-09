@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Safe — Sanitizador de Dados Sensíveis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --surface3: #222233;
+    --border: #2a2a3d;
+    --text: #e8e8f0;
+    --text-dim: #8888a8;
+    --accent: #ff6b35;
+    --accent2: #ff8c5a;
+    --accent-glow: rgba(255,107,53,0.15);
+    --danger: #ff4757;
+    --danger-bg: rgba(255,71,87,0.12);
+    --danger-border: rgba(255,71,87,0.3);
+    --success: #2ed573;
+    --success-bg: rgba(46,213,115,0.12);
+    --warn: #ffa502;
+    --warn-bg: rgba(255,165,2,0.12);
+    --info: #70a1ff;
+    --info-bg: rgba(112,161,255,0.12);
+    --purple: #a855f7;
+    --purple-bg: rgba(168,85,247,0.12);
+    --cyan: #22d3ee;
+    --cyan-bg: rgba(34,211,238,0.12);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background noise texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+  }
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--danger));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 1.3rem;
+    background: linear-gradient(135deg, var(--text), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .logo-tag {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-left: 4px;
+  }
+  .header-stats {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+  }
+  .stat-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all .3s;
+  }
+  .stat-pill .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .stat-danger .dot { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .stat-warn .dot { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .stat-success .dot { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+  /* Layout */
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 3rem;
+  }
+
+  /* Upload Zone */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all .4s cubic-bezier(.4,0,.2,1);
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, var(--accent-glow), transparent 70%);
+    opacity: 0;
+    transition: opacity .4s;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .upload-zone:hover::before, .upload-zone.dragover::before {
+    opacity: 1;
+  }
+  .upload-zone.has-file {
+    padding: 1.2rem 2rem;
+    border-style: solid;
+    border-color: var(--border);
+  }
+  .upload-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+    position: relative;
+    z-index: 1;
+  }
+  .upload-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: .4rem;
+    position: relative;
+    z-index: 1;
+  }
+  .upload-sub {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    position: relative;
+    z-index: 1;
+  }
+  .upload-file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+  }
+  .upload-file-info .file-icon {
+    width: 40px; height: 40px;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+  }
+  .upload-file-info .file-details {
+    text-align: left;
+  }
+  .upload-file-info .file-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .upload-file-info .file-size {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .upload-file-info .change-btn {
+    margin-left: auto;
+    padding: 6px 14px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 6px;
+    font-size: .75rem;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .upload-file-info .change-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  #fileInput { display: none; }
+
+  /* Processing indicator */
+  .processing {
+    display: none;
+    padding: 2rem;
+    text-align: center;
+  }
+  .processing.active { display: block; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-text {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+  .progress-bar {
+    width: 300px;
+    height: 4px;
+    background: var(--surface3);
+    border-radius: 2px;
+    margin: 1rem auto 0;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    width: 0%;
+    transition: width .3s;
+  }
+
+  /* Main workspace */
+  .workspace {
+    display: none;
+    margin-top: 1.5rem;
+  }
+  .workspace.active { display: block; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .25s cubic-bezier(.4,0,.2,1);
+    white-space: nowrap;
+  }
+  .btn:hover {
+    border-color: var(--accent);
+    background: var(--surface3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #e85d2a);
+    border-color: transparent;
+    color: white;
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border-color: transparent;
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+  .btn-danger {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    color: var(--danger);
+  }
+  .btn-danger:hover {
+    background: rgba(255,71,87,0.2);
+  }
+  .btn-success {
+    background: var(--success-bg);
+    border-color: rgba(46,213,115,0.3);
+    color: var(--success);
+  }
+  .btn-success:hover {
+    background: rgba(46,213,115,0.2);
+  }
+  .toolbar-spacer { flex: 1; }
+
+  /* Category filter chips */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .filter-chip {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .filter-chip:hover, .filter-chip.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--accent-glow);
+  }
+  .filter-chip .count {
+    background: var(--surface3);
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+  }
+  .filter-chip.active .count {
+    background: var(--accent);
+    color: white;
+  }
+
+  /* Panels */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    min-height: 500px;
+  }
+  @media (max-width: 900px) {
+    .panels { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+  .panel-header h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    flex: 1;
+  }
+  .panel-header .panel-badge {
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    position: relative;
+  }
+  .panel-body::-webkit-scrollbar { width: 6px; }
+  .panel-body::-webkit-scrollbar-track { background: transparent; }
+  .panel-body::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  /* Content display */
+  .content-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text);
+  }
+
+  /* Highlights */
+  .hl { padding: 1px 4px; border-radius: 4px; cursor: pointer; transition: all .2s; position: relative; font-weight: 600; }
+  .hl:hover { filter: brightness(1.3); }
+  .hl-cpf { background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger); }
+  .hl-cnpj { background: var(--purple-bg); border: 1px solid rgba(168,85,247,0.3); color: var(--purple); }
+  .hl-rg { background: var(--warn-bg); border: 1px solid rgba(255,165,2,0.3); color: var(--warn); }
+  .hl-nome { background: var(--info-bg); border: 1px solid rgba(112,161,255,0.3); color: var(--info); }
+  .hl-endereco { background: var(--cyan-bg); border: 1px solid rgba(34,211,238,0.3); color: var(--cyan); }
+  .hl-cep { background: var(--success-bg); border: 1px solid rgba(46,213,115,0.3); color: var(--success); }
+  .hl-telefone { background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.3); color: var(--accent); }
+  .hl-email { background: rgba(236,72,153,0.12); border: 1px solid rgba(236,72,153,0.3); color: #ec4899; }
+  .hl-financeiro { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }
+  .hl-data { background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); color: #6366f1; }
+  .hl-documento { background: rgba(244,114,182,0.12); border: 1px solid rgba(244,114,182,0.3); color: #f472b6; }
+  .hl-generico { background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; }
+
+  /* Redacted text */
+  .redacted {
+    background: var(--surface3);
+    color: var(--text-dim);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    border: 1px dashed var(--border);
+    letter-spacing: 1px;
+  }
+
+  /* Findings sidebar */
+  .findings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .finding-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 0.78rem;
+    transition: all .2s;
+    cursor: default;
+  }
+  .finding-item:hover {
+    border-color: var(--accent);
+  }
+  .finding-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    min-width: 70px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .finding-value {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .finding-replacement {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .finding-dismiss {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all .2s;
+    line-height: 1;
+    padding: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .finding-dismiss:hover {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    color: var(--danger);
+    transform: scale(1.1);
+  }
+  .finding-restore {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: 1px solid rgba(46,213,115,0.3);
+    background: var(--success-bg);
+    color: var(--success);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all .2s;
+    line-height: 1;
+    padding: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .finding-restore:hover {
+    background: rgba(46,213,115,0.2);
+    transform: scale(1.1);
+  }
+  .finding-item.dismissed {
+    opacity: 0.4;
+    border-style: dashed;
+  }
+  .finding-item.dismissed .finding-value {
+    text-decoration: line-through;
+  }
+  .dismissed-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin: 16px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+  }
+  .dismissed-header:hover { color: var(--text); }
+  .dismissed-header .chevron {
+    transition: transform .2s;
+    font-size: 0.6rem;
+  }
+  .dismissed-header .chevron.open { transform: rotate(90deg); }
+  .dismissed-section { overflow: hidden; }
+
+  /* Markdown preview */
+  .md-preview {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .md-preview h1, .md-preview h2, .md-preview h3 {
+    color: var(--text);
+    margin: 1.2em 0 0.5em;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .md-preview h1 { font-size: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+  .md-preview h2 { font-size: 1.2rem; }
+  .md-preview p { margin: 0.6em 0; }
+  .md-preview code {
+    background: var(--surface3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+  }
+  .md-preview ul, .md-preview ol { padding-left: 1.5rem; }
+  .md-preview table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  .md-preview th, .md-preview td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 0.82rem;
+  }
+  .md-preview th { background: var(--surface2); }
+
+  /* Tabs */
+  .tab-group {
+    display: flex;
+    gap: 0;
+  }
+  .tab-btn {
+    padding: 6px 14px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all .2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .tab-btn:first-child { border-radius: 6px 0 0 6px; }
+  .tab-btn:last-child { border-radius: 0 6px 6px 0; }
+  .tab-btn:not(:first-child) { border-left: 0; }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  /* Toast / notifications */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    z-index: 1000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all .4s cubic-bezier(.4,0,.2,1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .toast-success { background: var(--success); color: #000; }
+  .toast-danger { background: var(--danger); color: #fff; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .app { padding: 1rem; }
+    .header { padding: 0 1rem; }
+    .header-stats { display: none; }
+    .toolbar { gap: 6px; }
+    .btn { padding: 8px 12px; font-size: 0.78rem; }
+  }
+
+  /* Copy button animation */
+  .copied { animation: copiedPulse .5s; }
+  @keyframes copiedPulse {
+    0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+    50% { box-shadow: 0 0 0 8px transparent; }
+  }
+
+  /* Summary bar */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .summary-card .sc-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+  .summary-card .sc-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+  .sc-danger { color: var(--danger); }
+  .sc-warn { color: var(--warn); }
+  .sc-info { color: var(--info); }
+  .sc-success { color: var(--success); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">🔐</div>
+      <div>
+        <div class="logo-text">PDF Safe</div>
+      </div>
+      <span class="logo-tag">LGPD Sanitizer</span>
+    </div>
+    <div class="header-stats" id="headerStats" style="display:none;">
+      <div class="stat-pill stat-danger"><span class="dot"></span> <span id="statFindings">0</span> itens</div>
+      <div class="stat-pill stat-warn"><span class="dot"></span> <span id="statCategories">0</span> categorias</div>
+      <div class="stat-pill stat-success"><span class="dot"></span> <span id="statPages">0</span> páginas</div>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone">
+    <span class="upload-icon">📄</span>
+    <div class="upload-title">Arraste um PDF aqui ou clique para selecionar</div>
+    <div class="upload-sub">Processamento 100% local — nenhum dado sai do seu navegador</div>
+  </div>
+  <input type="file" id="fileInput" accept=".pdf">
+
+  <!-- Processing -->
+  <div class="processing" id="processing">
+    <div class="spinner"></div>
+    <div class="processing-text" id="processingText">Extraindo texto do PDF...</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- Workspace -->
+  <div class="workspace" id="workspace">
+
+    <!-- Summary -->
+    <div class="summary-bar" id="summaryBar"></div>
+
+    <!-- Filter chips -->
+    <div class="filter-bar" id="filterBar"></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="tab-group">
+        <button class="tab-btn active" data-view="highlighted" onclick="switchView('highlighted', this)">🔍 Destacado</button>
+        <button class="tab-btn" data-view="markdown" onclick="switchView('markdown', this)">📝 Markdown</button>
+        <button class="tab-btn" data-view="preview" onclick="switchView('preview', this)">👁️ Preview</button>
+      </div>
+      <div class="toolbar-spacer"></div>
+      <button class="btn btn-danger" onclick="sanitizeAll()">🔒 Sanitizar Tudo</button>
+      <button class="btn btn-success" onclick="downloadMarkdown()">⬇ Baixar .md</button>
+      <button class="btn" onclick="copyToClipboard()">📋 Copiar</button>
+      <button class="btn" onclick="resetApp()">↺ Novo</button>
+    </div>
+
+    <!-- Panels -->
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-header">
+          <span>📄</span>
+          <h3 id="leftPanelTitle">Texto com Destaques</h3>
+          <span class="panel-badge" id="leftBadge" style="background:var(--danger-bg);color:var(--danger);"></span>
+        </div>
+        <div class="panel-body">
+          <div class="content-display" id="contentDisplay"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span>🔎</span>
+          <h3>Dados Encontrados</h3>
+          <span class="panel-badge" id="findingsCount" style="background:var(--warn-bg);color:var(--warn);"></span>
+        </div>
+        <div class="panel-body">
+          <div class="findings-list" id="findingsList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  REGEX DATABASE — Brazilian PII Detection
+// ═══════════════════════════════════════════════════
+const REGEX_DB = [
+  // ── CPF ──
+  { id: 'cpf', cat: 'cpf', label: 'CPF', hl: 'hl-cpf',
+    regex: /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g,
+    replacement: 'XXX.XXX.XXX-XX' },
+  { id: 'cpf_nums', cat: 'cpf', label: 'CPF', hl: 'hl-cpf',
+    regex: /(?:CPF|cpf|C\.?P\.?F\.?)\s*[:–\-nº°]?\s*(\d{3}\.?\d{3}\.?\d{3}[\-.]?\d{2})/gi,
+    replacement: 'CPF: XXX.XXX.XXX-XX', fullMatch: true },
+
+  // ── CNPJ ──
+  { id: 'cnpj', cat: 'cnpj', label: 'CNPJ', hl: 'hl-cnpj',
+    regex: /\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g,
+    replacement: 'XX.XXX.XXX/XXXX-XX' },
+  { id: 'cnpj_label', cat: 'cnpj', label: 'CNPJ', hl: 'hl-cnpj',
+    regex: /(?:CNPJ|cnpj|C\.?N\.?P\.?J\.?)\s*[:–\-nº°]?\s*(\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})/gi,
+    replacement: 'CNPJ: XX.XXX.XXX/XXXX-XX', fullMatch: true },
+
+  // ── RG ──
+  { id: 'rg_label', cat: 'rg', label: 'RG', hl: 'hl-rg',
+    regex: /(?:RG|R\.?G\.?|Registro\s*Geral|Identidade|Carteira\s*de\s*Identidade)\s*[:–\-nº°]?\s*(\d{1,2}\.?\d{3}\.?\d{3}-?[0-9Xx]?)/gi,
+    replacement: 'RG: XX.XXX.XXX-X', fullMatch: true },
+  { id: 'rg_ssp', cat: 'rg', label: 'RG/SSP', hl: 'hl-rg',
+    regex: /\b(\d{1,2}\.?\d{3}\.?\d{3}-?[0-9Xx]?)\s*[-\/]?\s*(?:SSP|ssp)\s*[-\/]?\s*([A-Z]{2})\b/gi,
+    replacement: 'XX.XXX.XXX-X SSP/UF', fullMatch: true },
+
+  // ── CNH ──
+  { id: 'cnh', cat: 'documento', label: 'CNH', hl: 'hl-documento',
+    regex: /(?:CNH|C\.?N\.?H\.?|Habilitação|Carteira\s*(?:Nacional\s*)?(?:de\s*)?Habilitação)\s*[:–\-nº°]?\s*(\d{11})/gi,
+    replacement: 'CNH: XXXXXXXXXXX', fullMatch: true },
+
+  // ── Título de Eleitor ──
+  { id: 'titulo', cat: 'documento', label: 'Título Eleitor', hl: 'hl-documento',
+    regex: /(?:T[ií]tulo\s*(?:de\s*)?Eleitor|Título\s*Eleitoral|Inscrição\s*Eleitoral)\s*[:–\-nº°]?\s*(\d{4}\s?\d{4}\s?\d{4})/gi,
+    replacement: 'Título Eleitor: XXXX XXXX XXXX', fullMatch: true },
+
+  // ── PIS/PASEP/NIT ──
+  { id: 'pis', cat: 'documento', label: 'PIS/NIT', hl: 'hl-documento',
+    regex: /(?:PIS|PASEP|NIT|P\.?I\.?S\.?)\s*[:–\-nº°]?\s*(\d{3}\.?\d{5}\.?\d{2}-?\d{1})/gi,
+    replacement: 'PIS: XXX.XXXXX.XX-X', fullMatch: true },
+
+  // ── CTPS ──
+  { id: 'ctps', cat: 'documento', label: 'CTPS', hl: 'hl-documento',
+    regex: /(?:CTPS|Carteira\s*de\s*Trabalho)\s*[:–\-nº°]?\s*(\d{5,7})\s*[-\/]?\s*(?:Série|Serie|Ser\.)\s*[:–\-]?\s*(\d{3,5})/gi,
+    replacement: 'CTPS: XXXXXXX Série: XXXXX', fullMatch: true },
+
+  // ── Cartão SUS ──
+  { id: 'sus', cat: 'documento', label: 'SUS', hl: 'hl-documento',
+    regex: /(?:CNS|Cartão\s*(?:Nacional\s*)?(?:de\s*)?(?:Saúde|Saude)|Cartão\s*SUS|SUS)\s*[:–\-nº°]?\s*([12]\d{2}\s?\d{4}\s?\d{4}\s?\d{4})/gi,
+    replacement: 'SUS: XXX XXXX XXXX XXXX', fullMatch: true },
+
+  // ── Passaporte ──
+  { id: 'passaporte', cat: 'documento', label: 'Passaporte', hl: 'hl-documento',
+    regex: /(?:Passaporte|Passport)\s*[:–\-nº°]?\s*([A-Z]{2}\d{6})/gi,
+    replacement: 'Passaporte: XXXXXXXX', fullMatch: true },
+
+  // ── Registros profissionais ──
+  { id: 'oab', cat: 'documento', label: 'OAB', hl: 'hl-documento',
+    regex: /(?:OAB|O\.A\.B\.?)\s*[-\/]?\s*([A-Z]{2})\s*[-\/]?\s*(\d{3,6})/gi,
+    replacement: 'OAB/UF XXXXXX', fullMatch: true },
+  { id: 'crm', cat: 'documento', label: 'CRM', hl: 'hl-documento',
+    regex: /(?:CRM|C\.R\.M\.?)\s*[-\/]?\s*([A-Z]{2})\s*[-\/]?\s*(\d{4,7})/gi,
+    replacement: 'CRM/UF XXXXXX', fullMatch: true },
+  { id: 'crea', cat: 'documento', label: 'CREA', hl: 'hl-documento',
+    regex: /(?:CREA|C\.R\.E\.A\.?)\s*[-\/]?\s*([A-Z]{2})\s*[-\/]?\s*(\d{4,10})/gi,
+    replacement: 'CREA/UF XXXXXXXXXX', fullMatch: true },
+
+  // ── Placa veicular ──
+  { id: 'placa_old', cat: 'documento', label: 'Placa', hl: 'hl-documento',
+    regex: /\b[A-Z]{3}-\d{4}\b/g,
+    replacement: 'XXX-0000',
+    validate: (m) => {
+      const prefix = m.substring(0, 3);
+      const excluded = ['SAC','IGP','FGV','PAR','ART','COM','LEI','PRO','SAO','RIO','PAG','SET','OUT','NOV','DEZ','JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','CPF','RUA'];
+      return !excluded.includes(prefix);
+    }
+  },
+  { id: 'placa_new', cat: 'documento', label: 'Placa Mercosul', hl: 'hl-documento',
+    regex: /\b[A-Z]{3}\d[A-Z]\d{2}\b/g,
+    replacement: 'XXX0X00',
+    validate: (m) => {
+      const prefix = m.substring(0, 3);
+      const excluded = ['SAC','IGP','FGV','PAR','ART','COM','LEI','PRO'];
+      return !excluded.includes(prefix);
+    }
+  },
+
+  // ── RENAVAM ──
+  { id: 'renavam', cat: 'documento', label: 'RENAVAM', hl: 'hl-documento',
+    regex: /(?:RENAVAM|Renavam)\s*[:–\-nº°]?\s*(\d{9,11})/gi,
+    replacement: 'RENAVAM: XXXXXXXXXXX', fullMatch: true },
+
+  // ── CEP ──
+  { id: 'cep', cat: 'cep', label: 'CEP', hl: 'hl-cep',
+    regex: /\b\d{5}-\d{3}\b/g,
+    replacement: 'XXXXX-XXX' },
+  { id: 'cep_label', cat: 'cep', label: 'CEP', hl: 'hl-cep',
+    regex: /(?:CEP|C\.?E\.?P\.?|Código\s*Postal)\s*[:–\-]?\s*(\d{5}-?\d{3})/gi,
+    replacement: 'CEP: XXXXX-XXX', fullMatch: true },
+
+  // ── Endereço ──
+  { id: 'endereco', cat: 'endereco', label: 'Endereço', hl: 'hl-endereco',
+    regex: /(?<![a-zA-ZÀ-ÚÇà-úç])(?:Rua|Avenida|Alameda|Travessa|Praça|Largo|Rodovia|Estrada|Viela|Beco|Ladeira|Viaduto|R\.\s|Av\.\s|Al\.\s|Trav\.\s|Rod\.\s|Estr\.\s|Pça\.\s)\s*[A-ZÀ-ÚÇa-zà-úç0-9\s.,'º°ª\-]{3,60}(?:[,;]\s*(?:n[º°.]?|nro\.?|número)?\s*\d{1,6})?/gi,
+    replacement: '[ENDEREÇO OCULTADO]' },
+  { id: 'endereco_label', cat: 'endereco', label: 'Endereço', hl: 'hl-endereco',
+    regex: /(?:Endereço|Endereco)\s*[:–\-]\s*[A-ZÀ-ÚÇa-zà-úç0-9\s.,'\-º°ª]{5,100}/gi,
+    replacement: 'Endereço: [ENDEREÇO OCULTADO]', fullMatch: true },
+
+  // ── Bairro ──
+  { id: 'bairro', cat: 'endereco', label: 'Bairro', hl: 'hl-endereco',
+    regex: /(?:Bairro|Bro\.)\s*[:–\-]?\s*([A-ZÀ-ÚÇa-zà-úç\s]{2,40})/gi,
+    replacement: 'Bairro: [BAIRRO OCULTADO]', fullMatch: true },
+
+  // ── Telefone ──
+  { id: 'tel_cel', cat: 'telefone', label: 'Celular', hl: 'hl-telefone',
+    regex: /\(\d{2}\)\s*9\d{4}-?\d{4}/g,
+    replacement: '(XX) 9XXXX-XXXX' },
+  { id: 'tel_fixo', cat: 'telefone', label: 'Fixo', hl: 'hl-telefone',
+    regex: /\(\d{2}\)\s*[2-5]\d{3}-?\d{4}/g,
+    replacement: '(XX) XXXX-XXXX' },
+  { id: 'tel_intl', cat: 'telefone', label: 'Tel +55', hl: 'hl-telefone',
+    regex: /(?:\+55|0055)\s?\(?\d{2}\)?\s?9?\d{4}[-\s.]?\d{4}/g,
+    replacement: '+55 (XX) XXXXX-XXXX' },
+  { id: 'tel_0800', cat: 'telefone', label: '0800', hl: 'hl-telefone',
+    regex: /\b0800[-\s]?\d{3}[-\s]?\d{4}\b/g,
+    replacement: '0800-XXX-XXXX' },
+
+  // ── E-mail ──
+  { id: 'email', cat: 'email', label: 'E-mail', hl: 'hl-email',
+    regex: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi,
+    replacement: 'email@ocultado.com' },
+
+  // ── Nomes (com contexto para reduzir falsos positivos) ──
+  { id: 'nome_label', cat: 'nome', label: 'Nome', hl: 'hl-nome',
+    regex: /(?:Nome(?:\s*Completo)?|Paciente|Requerente|Autor|Réu|Contratante|Contratado|Titular|Beneficiário|Responsável|Representante|Outorgante|Outorgado|Cônjuge|Genitor|Genitora|Mãe|Pai|Filho|Filha)\s*[:–\-]?\s*([A-ZÀ-ÚÇ][a-zà-úç]+(?:\s(?:d[aeo]s?|e))?(?:\s[A-ZÀ-ÚÇ][a-zà-úç]+){1,5})/gi,
+    replacement_fn: (m) => m.replace(/[:–\-]?\s*[A-ZÀ-ÚÇ][a-zà-úç].*$/, ': [NOME OCULTADO]'),
+    fullMatch: true },
+  { id: 'nome_caps', cat: 'nome', label: 'Nome (CAPS)', hl: 'hl-nome',
+    regex: /\b[A-ZÀ-ÚÇ]{2,20}(?:\s(?:D[AEO]S?|E))?\s[A-ZÀ-ÚÇ]{2,20}(?:(?:\s(?:D[AEO]S?|E))?\s[A-ZÀ-ÚÇ]{2,20}){1,4}\b/g,
+    replacement: '[NOME OCULTADO]',
+    validate: (match) => {
+      const upper_stopwords = [
+        // Institutional
+        'PESSOA FISICA', 'PESSOA JURIDICA', 'RAZAO SOCIAL', 'NOME FANTASIA',
+        'DADOS PESSOAIS', 'REGISTRO GERAL', 'CARTEIRA DE IDENTIDADE', 'TITULO DE ELEITOR',
+        'CADASTRO NACIONAL', 'IMPOSTO DE RENDA', 'RECEITA FEDERAL', 'BANCO DO BRASIL',
+        'CAIXA ECONOMICA', 'PODER JUDICIARIO', 'MINISTERIO PUBLICO', 'TRIBUNAL DE JUSTICA',
+        'SECRETARIA DE ESTADO', 'PREFEITURA MUNICIPAL', 'GOVERNO DO ESTADO', 'REPUBLICA FEDERATIVA',
+        'DIARIO OFICIAL', 'NOTA FISCAL', 'ORDEM DOS ADVOGADOS',
+        // Contract / legal terms
+        'TERMO DE ADESAO', 'RESUMO DA COMPRA', 'PLANO FIDELIDADE', 'PLANO CONTRATADO',
+        'PLANO RECORRENCIA', 'PRAZO DE PERMANENCIA', 'TAXA DE MATRICULA', 'TAXA DE MANUTENCAO',
+        'FORMA DE PAGAMENTO', 'FORMAS DE CANCELAMENTO', 'ATRASO NO PAGAMENTO',
+        'CANCELAMENTO DO PLANO', 'CANCELAMENTO DURANTE', 'PERIODO DE TRANCAMENTO',
+        'NORMAS DE UTILIZACAO', 'QUADRO INFORMATIVO', 'VALORES PROMOCIONAIS',
+        'CONTRATACAO ELETRONICA', 'DECLARACAO DE SAUDE', 'PRIVACIDADE DE DADOS',
+        'POLITICA DE PRIVACIDADE', 'POLITICA DE REEMBOLSO', 'DIAS E HORARIOS',
+        'HORARIOS DE FUNCIONAMENTO', 'MENORES DE IDADE', 'PRAZO DE VIGENCIA',
+        'DATA DE INICIO', 'BENEFICIO COMERCIAL', 'PRAZO MINIMO',
+        'SHIFT FITNESS', 'ACADEMIAS DE GINASTICA', 'FITNESS ACADEMIAS',
+        // Generic section headers
+        'OBJETO', 'FORO', 'REAJUSTE', 'MENSALIDADES', 'TRANCAMENTO', 'COBRANCAS',
+        'OPCIONAL', 'CLIENTE', 'UNIDADE', 'ASSINATURA DO RESPONSAVEL',
+        // Other common institutional / non-name patterns
+        'MATO GROSSO', 'CAMPO GRANDE', 'SAO PAULO', 'RIO DE JANEIRO', 'BELO HORIZONTE',
+        'PORTO ALEGRE', 'MINAS GERAIS', 'ESPIRITO SANTO', 'SANTA CATARINA',
+        'RIO GRANDE', 'DISTRITO FEDERAL', 'PARQUE DOS',
+        'CONSELHO REGIONAL', 'ATIVIDADE FISICA', 'EXERCICIOS FISICOS'
+      ];
+      const up = match.toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // strip accents
+      if (upper_stopwords.some(s => up.includes(s))) return false;
+      if (match.length <= 6) return false;
+      // Must have at least one word with 3+ letters (avoid "MS AV" type fragments)
+      const words = match.split(/\s+/).filter(w => !/^(D[AEOI]S?|E|EM|NO|NA|DOS|DAS|DO|DA)$/i.test(w));
+      if (words.length < 2) return false;
+      if (words.some(w => w.length < 2)) return false;
+      return true;
+    }
+  },
+
+  // ── Valores monetários ──
+  { id: 'valor_rs', cat: 'financeiro', label: 'R$', hl: 'hl-financeiro',
+    regex: /R\$\s*\d{1,3}(?:\.\d{3})*,\d{2}/g,
+    replacement: 'R$ X.XXX,XX' },
+
+  // ── Dados bancários ──
+  { id: 'agencia', cat: 'financeiro', label: 'Agência', hl: 'hl-financeiro',
+    regex: /(?:Agência|Agencia|Ag\.)\s*[:–\-]?\s*(\d{4})-?([0-9Xx])?/gi,
+    replacement: 'Agência: XXXX-X', fullMatch: true },
+  { id: 'conta', cat: 'financeiro', label: 'Conta', hl: 'hl-financeiro',
+    regex: /(?:Conta|C\/C|C\.C\.|C\/P|Conta\s*Corrente|Conta\s*Poupança)\s*[:–\-]?\s*(\d{4,12})-?([0-9Xx])?/gi,
+    replacement: 'Conta: XXXXXXXX-X', fullMatch: true },
+
+  // ── PIX ──
+  { id: 'pix_evp', cat: 'financeiro', label: 'PIX EVP', hl: 'hl-financeiro',
+    regex: /(?:PIX|Pix|pix|Chave\s*PIX)\s*[:–\-]?\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi,
+    replacement: 'PIX: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', fullMatch: true },
+
+  // ── Boleto ──
+  { id: 'boleto', cat: 'financeiro', label: 'Boleto', hl: 'hl-financeiro',
+    regex: /\d{5}\.?\d{5}\s?\d{5}\.?\d{6}\s?\d{5}\.?\d{6}\s?\d\s?\d{14}/g,
+    replacement: '[CÓDIGO BOLETO OCULTADO]' },
+
+  // ── Datas ──
+  { id: 'data_br', cat: 'data', label: 'Data', hl: 'hl-data',
+    regex: /\b(?:0[1-9]|[12]\d|3[01])\/(?:0[1-9]|1[0-2])\/(?:19|20)\d{2}\b/g,
+    replacement: 'XX/XX/XXXX' },
+  { id: 'data_extenso', cat: 'data', label: 'Data ext.', hl: 'hl-data',
+    regex: /\b(?:0?[1-9]|[12]\d|3[01])\s+(?:de\s+)?(?:janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+(?:de\s+)?(?:19|20)\d{2}\b/gi,
+    replacement: 'XX de XXXXXXX de XXXX' },
+
+  // ── Processo judicial CNJ ──
+  { id: 'processo_cnj', cat: 'documento', label: 'Processo', hl: 'hl-documento',
+    regex: /\b\d{7}-\d{2}\.\d{4}\.\d{1}\.\d{2}\.\d{4}\b/g,
+    replacement: 'XXXXXXX-XX.XXXX.X.XX.XXXX' },
+
+  // ── Inscrição Estadual ──
+  { id: 'ie', cat: 'documento', label: 'IE', hl: 'hl-documento',
+    regex: /(?:I\.?E\.?|Inscrição\s*Estadual|Inscr\.?\s*Est\.?)\s*[:–\-nº°]?\s*([\d.\/-]{8,18})/gi,
+    replacement: 'IE: XXXXXXXXXXXX', fullMatch: true },
+];
+
+// Category metadata
+const CATEGORIES = {
+  cpf:        { label: 'CPF',        color: 'var(--danger)',  icon: '🪪' },
+  cnpj:       { label: 'CNPJ',       color: 'var(--purple)',  icon: '🏢' },
+  rg:         { label: 'RG',         color: 'var(--warn)',    icon: '🆔' },
+  nome:       { label: 'Nomes',      color: 'var(--info)',    icon: '👤' },
+  endereco:   { label: 'Endereço',   color: 'var(--cyan)',    icon: '📍' },
+  cep:        { label: 'CEP',        color: 'var(--success)', icon: '📮' },
+  telefone:   { label: 'Telefone',   color: 'var(--accent)',  icon: '📞' },
+  email:      { label: 'E-mail',     color: '#ec4899',        icon: '📧' },
+  financeiro: { label: 'Financeiro', color: '#f59e0b',        icon: '💰' },
+  data:       { label: 'Datas',      color: '#6366f1',        icon: '📅' },
+  documento:  { label: 'Documentos', color: '#f472b6',        icon: '📋' },
+};
+
+// ═══════════════════════════════════════════════════
+//  APP STATE
+// ═══════════════════════════════════════════════════
+let rawText = '';
+let markdownText = '';
+let findings = [];
+let sanitizedMarkdown = '';
+let isSanitized = false;
+let activeFilters = new Set(Object.keys(CATEGORIES));
+let dismissed = new Set();    // indices of dismissed findings (false positives)
+let showDismissed = false;    // toggle collapsed section
+let currentView = 'highlighted';
+
+// ═══════════════════════════════════════════════════
+//  PDF.js SETUP
+// ═══════════════════════════════════════════════════
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ═══════════════════════════════════════════════════
+//  FILE UPLOAD
+// ═══════════════════════════════════════════════════
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  if (file.type !== 'application/pdf') {
+    showToast('Selecione um arquivo PDF válido', 'danger');
+    return;
+  }
+  // Update upload zone
+  uploadZone.classList.add('has-file');
+  uploadZone.innerHTML = `<div class="upload-file-info">
+    <div class="file-icon">📄</div>
+    <div class="file-details">
+      <div class="file-name">${file.name}</div>
+      <div class="file-size">${(file.size / 1024).toFixed(1)} KB</div>
+    </div>
+    <button class="change-btn" onclick="event.stopPropagation(); resetApp();">Trocar</button>
+  </div>`;
+
+  processPDF(file);
+}
+
+// ═══════════════════════════════════════════════════
+//  PDF PROCESSING
+// ═══════════════════════════════════════════════════
+async function processPDF(file) {
+  const proc = document.getElementById('processing');
+  const progFill = document.getElementById('progressFill');
+  const procText = document.getElementById('processingText');
+  proc.classList.add('active');
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const totalPages = pdf.numPages;
+    let fullText = '';
+
+    for (let i = 1; i <= totalPages; i++) {
+      procText.textContent = `Extraindo página ${i} de ${totalPages}...`;
+      progFill.style.width = `${(i / totalPages * 70)}%`;
+
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      let pageText = '';
+      let lastY = null;
+
+      for (const item of textContent.items) {
+        if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+          pageText += '\n';
+        }
+        pageText += item.str;
+        if (item.hasEOL) pageText += '\n';
+        lastY = item.transform[5];
+      }
+      fullText += pageText + '\n\n---\n\n';
+    }
+
+    rawText = fullText.trim();
+    procText.textContent = 'Convertendo para Markdown...';
+    progFill.style.width = '80%';
+
+    // Convert to basic markdown
+    markdownText = convertToMarkdown(rawText);
+
+    procText.textContent = 'Detectando dados sensíveis...';
+    progFill.style.width = '90%';
+
+    // Detect sensitive data
+    findings = detectSensitiveData(markdownText);
+
+    progFill.style.width = '100%';
+    procText.textContent = `Concluído! ${findings.length} itens encontrados.`;
+
+    document.getElementById('statFindings').textContent = findings.length;
+    document.getElementById('statCategories').textContent = new Set(findings.map(f => f.cat)).size;
+    document.getElementById('statPages').textContent = totalPages;
+    document.getElementById('headerStats').style.display = 'flex';
+
+    setTimeout(() => {
+      proc.classList.remove('active');
+      document.getElementById('workspace').classList.add('active');
+      renderSummary();
+      renderFilters();
+      renderContent();
+      renderFindings();
+    }, 400);
+
+  } catch (err) {
+    console.error(err);
+    proc.classList.remove('active');
+    showToast('Erro ao processar PDF: ' + err.message, 'danger');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  TEXT → MARKDOWN CONVERSION
+// ═══════════════════════════════════════════════════
+function convertToMarkdown(text) {
+  let md = text;
+
+  // Normalize line breaks
+  md = md.replace(/\r\n/g, '\n');
+
+  // Page separators already added as ---
+  // Detect potential headers (ALL CAPS lines, short, standalone)
+  md = md.replace(/^([A-ZÀ-ÚÇ\s]{4,60})$/gm, (m) => {
+    const trimmed = m.trim();
+    if (trimmed.length < 60 && !trimmed.includes('.') && trimmed === trimmed.toUpperCase()) {
+      return `## ${trimmed}`;
+    }
+    return m;
+  });
+
+  // Clean up excessive whitespace
+  md = md.replace(/\n{4,}/g, '\n\n\n');
+  md = md.replace(/[ \t]+$/gm, '');
+
+  return md;
+}
+
+// ═══════════════════════════════════════════════════
+//  SENSITIVE DATA DETECTION
+// ═══════════════════════════════════════════════════
+function detectSensitiveData(text) {
+  const found = [];
+  const seen = new Set();
+
+  for (const rule of REGEX_DB) {
+    const re = new RegExp(rule.regex.source, rule.regex.flags);
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      const value = match[0];
+      const key = `${rule.id}::${match.index}::${value}`;
+
+      // Validate if rule has validation
+      if (rule.validate && !rule.validate(value)) continue;
+
+      // Avoid exact duplicate at same position
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      let replacement;
+      if (rule.replacement_fn) {
+        replacement = rule.replacement_fn(value);
+      } else {
+        replacement = rule.replacement;
+      }
+
+      found.push({
+        id: rule.id,
+        cat: rule.cat,
+        label: rule.label,
+        hl: rule.hl,
+        value: value,
+        index: match.index,
+        length: value.length,
+        replacement: replacement
+      });
+    }
+  }
+
+  // Sort by position (index) descending for safe replacement later
+  found.sort((a, b) => a.index - b.index);
+
+  // Remove overlapping matches (keep the longer / more specific one)
+  const cleaned = [];
+  let lastEnd = -1;
+  for (const f of found) {
+    if (f.index >= lastEnd) {
+      cleaned.push(f);
+      lastEnd = f.index + f.length;
+    }
+  }
+
+  return cleaned;
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════════════
+function renderSummary() {
+  const bar = document.getElementById('summaryBar');
+  const activeFindings = findings.filter((_, i) => !dismissed.has(i));
+  const catCounts = {};
+  activeFindings.forEach(f => { catCounts[f.cat] = (catCounts[f.cat] || 0) + 1; });
+
+  const colorMap = { cpf: 'sc-danger', cnpj: 'sc-danger', rg: 'sc-warn', nome: 'sc-info',
+    endereco: 'sc-info', cep: 'sc-success', telefone: 'sc-warn', email: 'sc-warn',
+    financeiro: 'sc-danger', data: 'sc-info', documento: 'sc-warn' };
+
+  bar.innerHTML = `
+    <div class="summary-card">
+      <div class="sc-label">Total encontrado</div>
+      <div class="sc-value sc-danger">${activeFindings.length}</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Categorias</div>
+      <div class="sc-value sc-warn">${Object.keys(catCounts).length}</div>
+    </div>
+    ${Object.entries(catCounts).slice(0, 4).map(([cat, count]) => `
+      <div class="summary-card">
+        <div class="sc-label">${CATEGORIES[cat]?.icon || '📋'} ${CATEGORIES[cat]?.label || cat}</div>
+        <div class="sc-value ${colorMap[cat] || 'sc-info'}">${count}</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderFilters() {
+  const bar = document.getElementById('filterBar');
+  const catCounts = {};
+  findings.forEach((f, i) => { if (!dismissed.has(i)) catCounts[f.cat] = (catCounts[f.cat] || 0) + 1; });
+  const totalActive = findings.filter((_, i) => !dismissed.has(i)).length;
+
+  bar.innerHTML = `
+    <div class="filter-chip active" onclick="toggleFilterAll(this)">
+      Todos <span class="count">${totalActive}</span>
+    </div>
+    ${Object.entries(catCounts).map(([cat, count]) => `
+      <div class="filter-chip ${activeFilters.has(cat) ? 'active' : ''}" data-cat="${cat}" onclick="toggleFilter('${cat}', this)">
+        ${CATEGORIES[cat]?.icon || '📋'} ${CATEGORIES[cat]?.label || cat}
+        <span class="count">${count}</span>
+      </div>
+    `).join('')}
+    ${dismissed.size ? `<div class="filter-chip" style="border-color:var(--danger-border);color:var(--danger);cursor:default;">
+      🚫 ${dismissed.size} excluído${dismissed.size > 1 ? 's' : ''}
+    </div>` : ''}
+  `;
+}
+
+function toggleFilter(cat, el) {
+  el.classList.toggle('active');
+  if (activeFilters.has(cat)) {
+    activeFilters.delete(cat);
+  } else {
+    activeFilters.add(cat);
+  }
+  renderContent();
+  renderFindings();
+}
+
+function toggleFilterAll(el) {
+  const allChips = document.querySelectorAll('.filter-chip[data-cat]');
+  const allActive = activeFilters.size === Object.keys(CATEGORIES).length;
+  if (allActive) {
+    activeFilters.clear();
+    allChips.forEach(c => c.classList.remove('active'));
+    el.classList.remove('active');
+  } else {
+    allChips.forEach(c => { c.classList.add('active'); activeFilters.add(c.dataset.cat); });
+    el.classList.add('active');
+  }
+  renderContent();
+  renderFindings();
+}
+
+function renderContent() {
+  const display = document.getElementById('contentDisplay');
+  const title = document.getElementById('leftPanelTitle');
+  const badge = document.getElementById('leftBadge');
+  const textToUse = isSanitized ? sanitizedMarkdown : markdownText;
+
+  if (currentView === 'highlighted') {
+    title.textContent = isSanitized ? 'Texto Sanitizado' : 'Texto com Destaques';
+    const visibleFindings = (isSanitized ? [] : findings).filter((f, i) => activeFilters.has(f.cat) && !dismissed.has(i));
+    badge.textContent = isSanitized ? '🔒 Limpo' : `${visibleFindings.length} itens`;
+    badge.style.background = isSanitized ? 'var(--success-bg)' : 'var(--danger-bg)';
+    badge.style.color = isSanitized ? 'var(--success)' : 'var(--danger)';
+
+    if (isSanitized) {
+      display.innerHTML = escapeHTML(sanitizedMarkdown);
+    } else {
+      display.innerHTML = highlightText(markdownText, visibleFindings);
+    }
+  } else if (currentView === 'markdown') {
+    title.textContent = 'Markdown Raw';
+    badge.textContent = 'MD';
+    badge.style.background = 'var(--info-bg)';
+    badge.style.color = 'var(--info)';
+    display.innerHTML = escapeHTML(textToUse);
+  } else if (currentView === 'preview') {
+    title.textContent = 'Preview Renderizado';
+    badge.textContent = 'HTML';
+    badge.style.background = 'var(--purple-bg)';
+    badge.style.color = 'var(--purple)';
+    display.innerHTML = `<div class="md-preview">${marked.parse(textToUse)}</div>`;
+    display.style.fontFamily = "'DM Sans', sans-serif";
+    return;
+  }
+  display.style.fontFamily = "'JetBrains Mono', monospace";
+}
+
+function highlightText(text, matchList) {
+  if (!matchList.length) return escapeHTML(text);
+
+  let result = '';
+  let lastIdx = 0;
+
+  // Sort by index
+  const sorted = [...matchList].sort((a, b) => a.index - b.index);
+
+  for (const f of sorted) {
+    // Text before match
+    result += escapeHTML(text.substring(lastIdx, f.index));
+    // Highlighted match
+    const matchText = text.substring(f.index, f.index + f.length);
+    result += `<span class="hl ${f.hl}" title="${f.label}: ${escapeAttr(matchText)}">${escapeHTML(matchText)}</span>`;
+    lastIdx = f.index + f.length;
+  }
+  // Remaining text
+  result += escapeHTML(text.substring(lastIdx));
+  return result;
+}
+
+function renderFindings() {
+  const list = document.getElementById('findingsList');
+  const badge = document.getElementById('findingsCount');
+  const active = findings.filter((f, i) => activeFilters.has(f.cat) && !dismissed.has(i));
+  const dismissedVisible = findings.filter((f, i) => activeFilters.has(f.cat) && dismissed.has(i));
+  badge.textContent = `${active.length} itens`;
+
+  if (!active.length && !dismissedVisible.length) {
+    list.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text-dim);">
+      ${findings.length ? 'Nenhum item visível com os filtros atuais' : 'Nenhum dado sensível encontrado'}
+    </div>`;
+    return;
+  }
+
+  const typeColors = {
+    cpf: 'background:var(--danger-bg);color:var(--danger);',
+    cnpj: 'background:var(--purple-bg);color:var(--purple);',
+    rg: 'background:var(--warn-bg);color:var(--warn);',
+    nome: 'background:var(--info-bg);color:var(--info);',
+    endereco: 'background:var(--cyan-bg);color:var(--cyan);',
+    cep: 'background:var(--success-bg);color:var(--success);',
+    telefone: 'background:rgba(255,107,53,0.12);color:var(--accent);',
+    email: 'background:rgba(236,72,153,0.12);color:#ec4899;',
+    financeiro: 'background:rgba(245,158,11,0.12);color:#f59e0b;',
+    data: 'background:rgba(99,102,241,0.12);color:#6366f1;',
+    documento: 'background:rgba(244,114,182,0.12);color:#f472b6;',
+  };
+
+  // --- Active findings grouped by category ---
+  const grouped = {};
+  active.forEach((f, _) => {
+    const idx = findings.indexOf(f);
+    if (!grouped[f.cat]) grouped[f.cat] = [];
+    grouped[f.cat].push({ ...f, _idx: idx });
+  });
+
+  let html = '';
+  for (const [cat, items] of Object.entries(grouped)) {
+    const meta = CATEGORIES[cat] || { label: cat, icon: '📋' };
+    html += `<div style="font-size:0.7rem;color:var(--text-dim);margin:12px 0 6px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">
+      ${meta.icon} ${meta.label} (${items.length})
+    </div>`;
+    for (const f of items) {
+      html += `<div class="finding-item">
+        <span class="finding-type" style="${typeColors[f.cat] || ''}">${f.label}</span>
+        <span class="finding-value" title="${escapeAttr(f.value)}">${escapeHTML(f.value)}</span>
+        <span class="finding-replacement">→ ${escapeHTML(f.replacement)}</span>
+        <button class="finding-dismiss" onclick="dismissFinding(${f._idx})" title="Excluir (falso positivo)">−</button>
+      </div>`;
+    }
+  }
+
+  // --- Dismissed items (collapsible) ---
+  if (dismissedVisible.length) {
+    html += `<div class="dismissed-header" onclick="toggleDismissedSection()">
+      <span class="chevron ${showDismissed ? 'open' : ''}">▶</span>
+      🚫 Excluídos (${dismissedVisible.length})
+      <span style="margin-left:auto;font-size:0.6rem;opacity:0.6;">clique para ${showDismissed ? 'ocultar' : 'ver'}</span>
+    </div>`;
+    html += `<div class="dismissed-section" style="display:${showDismissed ? 'block' : 'none'};">`;
+    for (const f of dismissedVisible) {
+      const idx = findings.indexOf(f);
+      html += `<div class="finding-item dismissed">
+        <span class="finding-type" style="${typeColors[f.cat] || ''};opacity:0.5;">${f.label}</span>
+        <span class="finding-value" title="${escapeAttr(f.value)}">${escapeHTML(f.value)}</span>
+        <button class="finding-restore" onclick="restoreFinding(${idx})" title="Restaurar item">+</button>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  list.innerHTML = html;
+}
+
+function dismissFinding(idx) {
+  dismissed.add(idx);
+  updateHeaderStats();
+  renderSummary();
+  renderContent();
+  renderFindings();
+  renderFilters();
+  showToast('🚫 Item excluído — não será sanitizado', 'danger');
+}
+
+function restoreFinding(idx) {
+  dismissed.delete(idx);
+  updateHeaderStats();
+  renderSummary();
+  renderContent();
+  renderFindings();
+  renderFilters();
+  showToast('✅ Item restaurado', 'success');
+}
+
+function toggleDismissedSection() {
+  showDismissed = !showDismissed;
+  renderFindings();
+}
+
+function updateHeaderStats() {
+  const activeCount = findings.filter((f, i) => !dismissed.has(i)).length;
+  const catCount = new Set(findings.filter((f, i) => !dismissed.has(i)).map(f => f.cat)).size;
+  document.getElementById('statFindings').textContent = activeCount;
+  document.getElementById('statCategories').textContent = catCount;
+}
+
+// ═══════════════════════════════════════════════════
+//  ACTIONS
+// ═══════════════════════════════════════════════════
+function sanitizeAll() {
+  if (isSanitized) {
+    // Undo sanitization
+    isSanitized = false;
+    sanitizedMarkdown = '';
+    renderContent();
+    renderFindings();
+    showToast('Sanitização removida — texto original restaurado', 'danger');
+    return;
+  }
+
+  let text = markdownText;
+
+  // Apply replacements from end to start (reverse order) to preserve indices
+  const sorted = [...findings].filter((f, i) => activeFilters.has(f.cat) && !dismissed.has(i)).sort((a, b) => b.index - a.index);
+
+  for (const f of sorted) {
+    const before = text.substring(0, f.index);
+    const after = text.substring(f.index + f.length);
+    text = before + f.replacement + after;
+  }
+
+  sanitizedMarkdown = text;
+  isSanitized = true;
+  renderContent();
+  renderFindings();
+  showToast(`✅ ${sorted.length} dados sensíveis substituídos com sucesso!`, 'success');
+}
+
+function downloadMarkdown() {
+  const text = isSanitized ? sanitizedMarkdown : markdownText;
+  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = isSanitized ? 'documento_sanitizado.md' : 'documento.md';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 Markdown baixado!', 'success');
+}
+
+function copyToClipboard() {
+  const text = isSanitized ? sanitizedMarkdown : markdownText;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 Copiado para a área de transferência!', 'success');
+  });
+}
+
+function switchView(view, btn) {
+  currentView = view;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderContent();
+}
+
+function resetApp() {
+  rawText = '';
+  markdownText = '';
+  findings = [];
+  sanitizedMarkdown = '';
+  isSanitized = false;
+  activeFilters = new Set(Object.keys(CATEGORIES));
+  dismissed = new Set();
+  showDismissed = false;
+  currentView = 'highlighted';
+
+  document.getElementById('workspace').classList.remove('active');
+  document.getElementById('headerStats').style.display = 'none';
+  document.getElementById('processing').classList.remove('active');
+
+  const uz = document.getElementById('uploadZone');
+  uz.classList.remove('has-file');
+  uz.innerHTML = `<span class="upload-icon">📄</span>
+    <div class="upload-title">Arraste um PDF aqui ou clique para selecionar</div>
+    <div class="upload-sub">Processamento 100% local — nenhum dado sai do seu navegador</div>`;
+  fileInput.value = '';
+}
+
+// ═══════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════
+function escapeHTML(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+function escapeAttr(str) {
+  return str.replace(/"/g, '&quot;').replace(/'/g, '&#039;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

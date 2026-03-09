@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Safe — Sanitizador de Dados Sensíveis</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --surface3: #222233;
+    --border: #2a2a3d;
+    --text: #e8e8f0;
+    --text-dim: #8888a8;
+    --accent: #ff6b35;
+    --accent2: #ff8c5a;
+    --accent-glow: rgba(255,107,53,0.15);
+    --danger: #ff4757;
+    --success: #2ed573;
+    --info: #70a1ff;
+    --purple: #a855f7;
+    --cyan: #22d3ee;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 4px 40px rgba(0,0,0,0.5);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Orbs background */
+  .bg-orbs {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.12;
+    animation: orbFloat 20s ease-in-out infinite alternate;
+  }
+  .orb-1 {
+    width: 600px; height: 600px;
+    background: var(--accent);
+    top: -200px; left: -100px;
+    animation-delay: 0s;
+  }
+  .orb-2 {
+    width: 500px; height: 500px;
+    background: var(--purple);
+    bottom: -150px; right: -100px;
+    animation-delay: -7s;
+  }
+  .orb-3 {
+    width: 400px; height: 400px;
+    background: var(--cyan);
+    top: 40%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation-delay: -14s;
+    opacity: 0.06;
+  }
+  @keyframes orbFloat {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(30px, 20px) scale(1.08); }
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    background: rgba(10,10,15,0.7);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Logo */
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+  }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent), var(--danger));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 24px rgba(255,107,53,0.3);
+    flex-shrink: 0;
+  }
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 1.35rem;
+    background: linear-gradient(135deg, var(--text) 30%, var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.3px;
+  }
+
+  /* Language selector */
+  .lang-selector {
+    position: relative;
+  }
+  .lang-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .lang-btn:hover {
+    background: var(--surface3);
+    border-color: rgba(255,255,255,0.15);
+    box-shadow: 0 0 16px rgba(0,0,0,0.3);
+  }
+  .flag-icon {
+    width: 22px; height: 16px;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .lang-chevron {
+    width: 14px; height: 14px;
+    color: var(--text-dim);
+    transition: transform 0.2s;
+  }
+  .lang-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    min-width: 170px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: none;
+    z-index: 300;
+  }
+  .lang-dropdown.open { display: block; }
+  .lang-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background 0.15s;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .lang-option:hover { background: var(--surface3); }
+  .lang-option.active {
+    background: rgba(255,107,53,0.12);
+    color: var(--accent2);
+  }
+  .lang-option-label { flex: 1; }
+  .lang-check {
+    width: 14px; height: 14px;
+    color: var(--accent);
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 120px 2rem 80px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(46,213,115,0.1);
+    border: 1px solid rgba(46,213,115,0.2);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--success);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero-badge-dot {
+    width: 7px; height: 7px;
+    background: var(--success);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--success);
+    animation: pulse 2s ease infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(3rem, 7vw, 5.5rem);
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.6s ease 0.1s both;
+  }
+  .hero-title-gradient {
+    background: linear-gradient(135deg, var(--text) 20%, var(--accent2) 60%, var(--danger));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: var(--text-dim);
+    max-width: 600px;
+    line-height: 1.7;
+    margin-bottom: 2.5rem;
+    animation: fadeUp 0.6s ease 0.2s both;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeUp 0.6s ease 0.3s both;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, var(--accent), #e05520);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 14px 32px;
+    border-radius: 12px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s;
+    box-shadow: 0 4px 24px rgba(255,107,53,0.4), 0 0 0 0 rgba(255,107,53,0);
+    letter-spacing: 0.2px;
+  }
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(255,107,53,0.5), 0 0 0 4px rgba(255,107,53,0.1);
+  }
+  .btn-primary:hover::before { opacity: 1; }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-arrow {
+    font-size: 1.2rem;
+    transition: transform 0.2s;
+  }
+  .btn-primary:hover .btn-arrow { transform: translateX(4px); }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 14px 26px;
+    border-radius: 12px;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover {
+    background: var(--surface3);
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-2px);
+  }
+
+  /* Privacy badge hero */
+  .hero-privacy-note {
+    margin-top: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.825rem;
+    color: var(--text-dim);
+    animation: fadeUp 0.6s ease 0.4s both;
+  }
+  .hero-privacy-note svg { color: var(--success); flex-shrink: 0; }
+
+  /* ─── PRIVACY HIGHLIGHT ─── */
+  .privacy-strip {
+    position: relative;
+    z-index: 1;
+    background: linear-gradient(135deg, rgba(46,213,115,0.07), rgba(34,211,238,0.04));
+    border-top: 1px solid rgba(46,213,115,0.12);
+    border-bottom: 1px solid rgba(46,213,115,0.12);
+    padding: 3rem 2rem;
+  }
+  .privacy-strip-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+  }
+  .privacy-strip-icon {
+    width: 56px; height: 56px;
+    background: rgba(46,213,115,0.12);
+    border: 1px solid rgba(46,213,115,0.2);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+  }
+  .privacy-strip-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--success);
+  }
+  .privacy-strip-desc {
+    font-size: 1rem;
+    color: var(--text-dim);
+    max-width: 640px;
+    line-height: 1.7;
+  }
+  .privacy-strip-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 0.5rem;
+  }
+  .privacy-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(46,213,115,0.08);
+    border: 1px solid rgba(46,213,115,0.15);
+    border-radius: 100px;
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--success);
+  }
+
+  /* ─── FEATURES ─── */
+  .features {
+    position: relative;
+    z-index: 1;
+    padding: 6rem 2rem;
+  }
+  .section-header {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 4rem;
+  }
+  .section-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent2);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    background: rgba(255,107,53,0.08);
+    border: 1px solid rgba(255,107,53,0.15);
+    padding: 4px 12px;
+    border-radius: 100px;
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    line-height: 1.15;
+    letter-spacing: -1px;
+    margin-bottom: 1rem;
+    color: var(--text);
+  }
+  .section-desc {
+    font-size: 1rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .features-grid {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--card-gradient, transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: inherit;
+  }
+  .feature-card:hover {
+    border-color: var(--card-border-hover, rgba(255,107,53,0.3));
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-card-1 {
+    --card-gradient: linear-gradient(135deg, rgba(255,107,53,0.05), transparent);
+    --card-border-hover: rgba(255,107,53,0.25);
+  }
+  .feature-card-2 {
+    --card-gradient: linear-gradient(135deg, rgba(168,85,247,0.05), transparent);
+    --card-border-hover: rgba(168,85,247,0.25);
+  }
+  .feature-card-3 {
+    --card-gradient: linear-gradient(135deg, rgba(46,213,115,0.05), transparent);
+    --card-border-hover: rgba(46,213,115,0.25);
+  }
+  .feature-card-4 {
+    --card-gradient: linear-gradient(135deg, rgba(34,211,238,0.05), transparent);
+    --card-border-hover: rgba(34,211,238,0.25);
+  }
+  .feature-card-5 {
+    --card-gradient: linear-gradient(135deg, rgba(255,71,87,0.05), transparent);
+    --card-border-hover: rgba(255,71,87,0.25);
+  }
+  .feature-card-6 {
+    --card-gradient: linear-gradient(135deg, rgba(112,161,255,0.05), transparent);
+    --card-border-hover: rgba(112,161,255,0.25);
+  }
+
+  .feature-icon {
+    width: 48px; height: 48px;
+    border-radius: 13px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    margin-bottom: 1.25rem;
+    flex-shrink: 0;
+  }
+  .icon-orange { background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.2); }
+  .icon-purple { background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.2); }
+  .icon-green  { background: rgba(46,213,115,0.12); border: 1px solid rgba(46,213,115,0.2); }
+  .icon-cyan   { background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.2); }
+  .icon-red    { background: rgba(255,71,87,0.12);  border: 1px solid rgba(255,71,87,0.2); }
+  .icon-blue   { background: rgba(112,161,255,0.12);border: 1px solid rgba(112,161,255,0.2); }
+
+  .feature-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 0.6rem;
+    color: var(--text);
+  }
+  .feature-desc {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    line-height: 1.65;
+  }
+
+  /* ─── HOW IT WORKS ─── */
+  .how-it-works {
+    position: relative;
+    z-index: 1;
+    padding: 4rem 2rem 6rem;
+  }
+  .steps {
+    max-width: 780px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .step {
+    display: flex;
+    gap: 2rem;
+    position: relative;
+  }
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 22px;
+    top: 52px;
+    bottom: -16px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--border), transparent);
+  }
+  .step-num {
+    width: 46px; height: 46px;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--accent2);
+    flex-shrink: 0;
+    margin-top: 2px;
+    position: relative;
+    z-index: 1;
+  }
+  .step-content {
+    padding-bottom: 2.5rem;
+    flex: 1;
+  }
+  .step-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 0.4rem;
+    color: var(--text);
+  }
+  .step-desc {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    line-height: 1.65;
+  }
+
+  /* ─── CTA SECTION ─── */
+  .cta-section {
+    position: relative;
+    z-index: 1;
+    padding: 5rem 2rem 7rem;
+    text-align: center;
+  }
+  .cta-card {
+    max-width: 700px;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 4rem 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-card::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .cta-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,107,53,0.08), transparent 60%);
+    pointer-events: none;
+  }
+  .cta-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 1rem;
+    position: relative;
+  }
+  .cta-desc {
+    font-size: 1rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+    max-width: 480px;
+    margin: 0 auto 2rem;
+    position: relative;
+  }
+  .cta-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+  .cta-note {
+    margin-top: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    position: relative;
+  }
+
+  /* ─── FOOTER ─── */
+  .footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding: 2.5rem 2rem;
+  }
+  .footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .footer-logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--danger));
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .footer-logo-text {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 1rem;
+    background: linear-gradient(135deg, var(--text), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .footer-note {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--surface3); }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 640px) {
+    .hero { padding: 100px 1.5rem 60px; }
+    .features { padding: 4rem 1.5rem; }
+    .how-it-works { padding: 3rem 1.5rem 5rem; }
+    .cta-card { padding: 2.5rem 1.5rem; }
+    .footer-inner { flex-direction: column; align-items: flex-start; }
+    .lang-btn span { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="bg-orbs" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<!-- ─── HEADER ─── -->
+<header class="header">
+  <div class="header-inner">
+    <a href="#" class="logo">
+      <div class="logo-icon">🔒</div>
+      <span class="logo-text">PDF Safe</span>
+    </a>
+
+    <!-- Language Selector -->
+    <div class="lang-selector" id="langSelector">
+      <button class="lang-btn" id="langBtn" onclick="toggleLang()" aria-haspopup="true" aria-expanded="false">
+        <!-- Brazilian Flag SVG -->
+        <svg class="flag-icon" viewBox="0 0 22 16" xmlns="http://www.w3.org/2000/svg">
+          <rect width="22" height="16" fill="#009B3A"/>
+          <polygon points="11,2 20,8 11,14 2,8" fill="#FEDF00"/>
+          <circle cx="11" cy="8" r="3.6" fill="#002776"/>
+          <path d="M7.7 7.2 A3.6 3.6 0 0 1 14.3 7.2" stroke="#fff" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span>Português (BR)</span>
+        <svg class="lang-chevron" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="lang-dropdown" id="langDropdown" role="menu">
+        <a href="pdf-safe-brazil.html" class="lang-option active" role="menuitem">
+          <svg class="flag-icon" viewBox="0 0 22 16" xmlns="http://www.w3.org/2000/svg">
+            <rect width="22" height="16" fill="#009B3A"/>
+            <polygon points="11,2 20,8 11,14 2,8" fill="#FEDF00"/>
+            <circle cx="11" cy="8" r="3.6" fill="#002776"/>
+            <path d="M7.7 7.2 A3.6 3.6 0 0 1 14.3 7.2" stroke="#fff" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="lang-option-label">Português (BR)</span>
+          <svg class="lang-check" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ─── HERO ─── -->
+<main>
+  <section class="hero">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      Processamento 100% local
+    </div>
+
+    <h1 class="hero-title">
+      <span class="hero-title-gradient">Proteja seus dados<br>antes de compartilhar.</span>
+    </h1>
+
+    <p class="hero-subtitle">
+      Sanitize informações sensíveis de documentos PDF diretamente no seu navegador.
+      Nenhum arquivo é enviado a servidores — tudo acontece na sua máquina.
+    </p>
+
+    <div class="hero-actions">
+      <a href="pdf-safe-brazil.html" class="btn-primary">
+        Acessar agora
+        <span class="btn-arrow">→</span>
+      </a>
+      <a href="#como-funciona" class="btn-secondary">
+        Como funciona
+      </a>
+    </div>
+
+    <p class="hero-privacy-note">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 1.5L2 4v4c0 3.3 2.5 6.4 6 7.1C12.5 14.4 14 11.3 14 8V4L8 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M5.5 8l1.8 1.8L10.5 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Sem servidor. Sem upload. Sem rastreamento.
+    </p>
+  </section>
+
+  <!-- ─── PRIVACY STRIP ─── -->
+  <section class="privacy-strip">
+    <div class="privacy-strip-inner">
+      <div class="privacy-strip-icon">🛡️</div>
+      <h2 class="privacy-strip-title">Seus dados nunca saem do seu computador</h2>
+      <p class="privacy-strip-desc">
+        O PDF Safe roda inteiramente no seu navegador usando tecnologia WebAssembly.
+        Nenhum byte do seu documento é enviado para qualquer servidor externo.
+        Seus arquivos permanecem sob seu controle total.
+      </p>
+      <div class="privacy-strip-badges">
+        <span class="privacy-badge">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Zero upload
+        </span>
+        <span class="privacy-badge">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Sem conta necessária
+        </span>
+        <span class="privacy-badge">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Funciona offline
+        </span>
+        <span class="privacy-badge">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Open source friendly
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FEATURES ─── -->
+  <section class="features" id="funcionalidades">
+    <div class="section-header reveal">
+      <span class="section-tag">Funcionalidades</span>
+      <h2 class="section-title">Tudo que você precisa para proteger documentos</h2>
+      <p class="section-desc">Detecção inteligente e remoção precisa de dados sensíveis brasileiros em PDFs de qualquer origem.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card feature-card-1 reveal">
+        <div class="feature-icon icon-orange">🔍</div>
+        <h3 class="feature-title">Detecção Automática</h3>
+        <p class="feature-desc">Identifica automaticamente CPF, CNPJ, RG, CNH, passaporte, e-mail, telefone, CEP, endereço e dados bancários com alta precisão.</p>
+      </div>
+
+      <div class="feature-card feature-card-2 reveal">
+        <div class="feature-icon icon-purple">✏️</div>
+        <h3 class="feature-title">Revisão Manual</h3>
+        <p class="feature-desc">Revise e ajuste cada detecção antes de aplicar. Adicione ou remova marcações manualmente com controle total sobre o resultado.</p>
+      </div>
+
+      <div class="feature-card feature-card-3 reveal">
+        <div class="feature-icon icon-green">🛡️</div>
+        <h3 class="feature-title">100% Privado</h3>
+        <p class="feature-desc">Todo o processamento ocorre localmente no seu navegador. Nenhum dado, nenhum arquivo, nenhuma informação é enviada a qualquer servidor.</p>
+      </div>
+
+      <div class="feature-card feature-card-4 reveal">
+        <div class="feature-icon icon-cyan">📋</div>
+        <h3 class="feature-title">Dados Brasileiros</h3>
+        <p class="feature-desc">Especializado em documentos brasileiros: CPF com e sem pontuação, CNPJ, RG estadual, CEP, PIX, dados do SUS e muito mais.</p>
+      </div>
+
+      <div class="feature-card feature-card-5 reveal">
+        <div class="feature-icon icon-red">⚡</div>
+        <h3 class="feature-title">Processamento Rápido</h3>
+        <p class="feature-desc">Análise instantânea utilizando PDF.js diretamente no navegador, sem filas de espera nem tempo de upload.</p>
+      </div>
+
+      <div class="feature-card feature-card-6 reveal">
+        <div class="feature-icon icon-blue">💾</div>
+        <h3 class="feature-title">Export Seguro</h3>
+        <p class="feature-desc">Baixe o PDF sanitizado com os dados sensíveis substituídos por blocos opacos. Formato padrão, compatível com qualquer leitor.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── HOW IT WORKS ─── -->
+  <section class="how-it-works" id="como-funciona">
+    <div class="section-header reveal">
+      <span class="section-tag">Passo a passo</span>
+      <h2 class="section-title">Como funciona</h2>
+      <p class="section-desc">Três passos simples para proteger seus documentos antes de compartilhá-los.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <h3 class="step-title">Abra o documento</h3>
+          <p class="step-desc">Arraste ou selecione o arquivo PDF no seu computador. O arquivo é carregado diretamente no navegador — nenhum upload acontece.</p>
+        </div>
+      </div>
+
+      <div class="step reveal">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <h3 class="step-title">Revise as detecções</h3>
+          <p class="step-desc">O sistema identifica automaticamente os dados sensíveis e exibe uma lista para revisão. Marque ou desmarque os itens conforme necessário.</p>
+        </div>
+      </div>
+
+      <div class="step reveal">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <h3 class="step-title">Baixe o PDF sanitizado</h3>
+          <p class="step-desc">Com um clique, gere e baixe o documento com todos os dados sensíveis selecionados ocultados permanentemente.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA ─── -->
+  <section class="cta-section">
+    <div class="cta-card reveal">
+      <div class="cta-glow"></div>
+      <h2 class="cta-title">Pronto para proteger<br>seus documentos?</h2>
+      <p class="cta-desc">Gratuito, sem cadastro, sem servidor. Comece agora diretamente no navegador.</p>
+      <div class="cta-actions">
+        <a href="pdf-safe-brazil.html" class="btn-primary">
+          Acessar PDF Safe
+          <span class="btn-arrow">→</span>
+        </a>
+      </div>
+      <p class="cta-note">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 1.5L2 4v4c0 3.3 2.5 6.4 6 7.1C12.5 14.4 14 11.3 14 8V4L8 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        </svg>
+        Nenhum dado é enviado ao servidor. Tudo roda na sua máquina.
+      </p>
+    </div>
+  </section>
+</main>
+
+<!-- ─── FOOTER ─── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <a href="#" class="footer-logo">
+      <div class="footer-logo-icon">🔒</div>
+      <span class="footer-logo-text">PDF Safe</span>
+    </a>
+    <span class="footer-note">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 1.5L2 4v4c0 3.3 2.5 6.4 6 7.1C12.5 14.4 14 11.3 14 8V4L8 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      </svg>
+      Seus dados ficam na sua máquina. Sempre.
+    </span>
+  </div>
+</footer>
+
+<script>
+  // ─── LANGUAGE DROPDOWN ───
+  function toggleLang() {
+    const dropdown = document.getElementById('langDropdown');
+    const btn = document.getElementById('langBtn');
+    const isOpen = dropdown.classList.toggle('open');
+    btn.setAttribute('aria-expanded', isOpen);
+  }
+
+  document.addEventListener('click', function(e) {
+    const sel = document.getElementById('langSelector');
+    if (!sel.contains(e.target)) {
+      document.getElementById('langDropdown').classList.remove('open');
+      document.getElementById('langBtn').setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.getElementById('langDropdown').classList.remove('open');
+      document.getElementById('langBtn').setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // ─── SCROLL REVEAL ───
+  const observer = new IntersectionObserver(
+    (entries) => entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    }),
+    { threshold: 0.12 }
+  );
+
+  document.querySelectorAll('.reveal').forEach((el, i) => {
+    el.style.transitionDelay = (i % 3) * 0.08 + 's';
+    observer.observe(el);
+  });
+</script>
+</body>
+</html>
