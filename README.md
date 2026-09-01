@@ -1,4 +1,4 @@
-# PDF Safe — Sensitive Data Sanitizer
+# PDF Safe — Sensitive Data Anonymizer
 
 > Detect and redact PII from PDF documents entirely in your browser. No upload. No server. No tracking.
 
@@ -6,11 +6,11 @@
 
 ## Overview
 
-PDF Safe is a client-side tool that extracts text from PDF files, automatically detects sensitive personal data, and lets you review and sanitize it before sharing. Every operation runs locally via WebAssembly — nothing ever leaves your machine.
+PDF Safe is a client-side tool that extracts text from PDF files, automatically detects sensitive personal data, and lets you review and anonymize it before sharing. Every operation runs locally via WebAssembly — nothing ever leaves your machine.
 
 Two editions are available:
 
-| Edition | Regulation | Landing page | Sanitizer |
+| Edition | Regulation | Landing page | App |
 |---------|-----------|--------------|-----------|
 | 🇧🇷 Brazil | LGPD | `index.html` | `pdf-safe-brazil.html` |
 | 🇺🇸 United States | HIPAA / CCPA | `index-usa.html` | `pdf-safe-usa.html` |
@@ -25,7 +25,7 @@ Two editions are available:
 - **Filter by category** — toggle visibility per data type (SSN, address, financial, etc.)
 - **Three views** — highlighted text, raw Markdown, rendered preview
 - **One-click redaction** — replaces all active findings in order, preserving document structure
-- **Export** — download the sanitized text as a `.md` file or copy to clipboard
+- **Export** — download the anonymized text as a `.md` file or copy to clipboard
 - **100% private** — processed with [PDF.js](https://mozilla.github.io/pdf.js/) in the browser; no backend, no account, works offline
 
 ---
@@ -87,7 +87,7 @@ Two editions are available:
 
 1. **Open** — drag a PDF onto the upload zone or click to browse
 2. **Extract** — PDF.js reads each page and converts to plain text / Markdown
-3. **Detect** — regex rules scan the text; overlapping matches are resolved by position (longest/first wins)
+3. **Detect** — regex rules scan the text; overlapping matches are resolved by position (the first match reaching a position wins)
 4. **Review** — findings appear highlighted in the left panel and listed on the right; dismiss false positives with `−`
 5. **Redact** — click **Redact All** to apply replacements from end to start (preserving indices); click again to undo
 6. **Export** — download `.md` or copy to clipboard
@@ -100,11 +100,38 @@ Two editions are available:
 pdf-safe/
 ├── index.html            # Brazilian landing page (PT-BR)
 ├── index-usa.html        # US landing page (EN)
-├── pdf-safe-brazil.html  # Brazilian PII sanitizer
-└── pdf-safe-usa.html     # US PII sanitizer
+├── pdf-safe-brazil.html  # Brazilian edition — thin shell
+├── pdf-safe-usa.html     # US edition — thin shell
+├── css/
+│   ├── app.css           # styles for both editions
+│   └── landing.css       # styles for both landing pages
+└── js/
+    ├── boot-br.js        # entry point: BR rules + pt-BR strings
+    ├── boot-us.js        # entry point: US rules + en-US strings
+    ├── app.js            # UI flow and state, shared by both editions
+    ├── template.js       # app markup, written once
+    ├── detector.js       # detectSensitiveData — pure, no DOM
+    ├── markdown.js       # convertToMarkdown — pure, no DOM
+    ├── landing.js        # landing page behaviour
+    ├── rules/            # br.js, us.js — regexes, categories, validators
+    └── i18n/             # pt-BR.js, en-US.js — every UI string
 ```
 
-No build step. No dependencies to install. Open any HTML file directly in a modern browser.
+Both editions run the same `app.js`; only the rule set and the string table differ.
+
+### Running locally
+
+There is no build step and nothing to install, but the app uses ES modules, so it
+must be served over HTTP — opening the `.html` files directly via `file://` will not
+work:
+
+```bash
+npx serve .          # or: python3 -m http.server
+```
+
+Then open <http://localhost:3000/index.html>. Deploying is just copying the
+repository to any static host (GitHub Pages, Cloudflare Pages); relative paths and
+the existing URLs are unchanged.
 
 ---
 
@@ -124,6 +151,14 @@ No build step. No dependencies to install. Open any HTML file directly in a mode
 - No analytics, no cookies, no external requests beyond CDN assets
 - Files are read via the [File API](https://developer.mozilla.org/en-US/docs/Web/API/File_API) and never leave the browser tab
 - Works fully offline once the CDN assets are cached
+
+This is enforced by the browser, not just promised:
+
+- Every page declares a **Content Security Policy** with `connect-src 'none'`, so no
+  script on the page can open a `fetch`, `XMLHttpRequest` or WebSocket to anywhere —
+  document contents have no way out.
+- The CDN libraries are pinned with **Subresource Integrity** hashes, so a tampered
+  CDN response is refused by the browser instead of executed.
 
 ---
 
