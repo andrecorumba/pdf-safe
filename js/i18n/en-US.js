@@ -61,6 +61,8 @@ export const i18n = {
   restoreTitle: 'Restore item',
   dismissedHeader: (n) => `🚫 Dismissed (${n})`,
   dismissedToggle: (shown) => `click to ${shown ? 'hide' : 'show'}`,
+  suggestionTag: 'low-confidence suggestion',
+  suggestionTitle: 'Low-confidence detection: it will not be redacted unless you restore it',
   toastDismissed: '🚫 Item dismissed — will not be redacted',
   toastRestored: '✅ Item restored',
 

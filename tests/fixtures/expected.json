@@ -1,0 +1,55 @@
+{
+  "locacao.txt": {
+    "people": [
+      "JOÃO CARLOS DE ALMEIDA PRADO",
+      "Maria Fernanda Souza Lima",
+      "Pedro Henrique D'Ávila Neto",
+      "Ana Paula Ribeiro Costa",
+      "CARLOS EDUARDO MENDES"
+    ],
+    "companies": []
+  },
+  "servicos.txt": {
+    "people": [
+      "Ricardo Nogueira Bastos",
+      "Beatriz Helena Moraes Tavares",
+      "Helena Maria Tavares"
+    ],
+    "companies": [
+      "Instituto Aurora de Pesquisa",
+      "ALFA SERVIÇOS DE ENGENHARIA LTDA"
+    ]
+  },
+  "compra-venda.txt": {
+    "people": [
+      "Roberto Augusto Fonseca Vieira",
+      "Luciana Cristina Barbosa Duarte",
+      "Gustavo Henrique Lacerda Pinto",
+      "Sérgio Luiz Monteiro Abreu",
+      "Fernanda Lopes Guimarães",
+      "Marcelo Tadeu Rangel"
+    ],
+    "companies": [
+      "Construtora Horizonte Azul Empreendimentos S.A."
+    ]
+  },
+  "pdfjs-quebrado.txt": {
+    "people": [
+      "JOÃO CARLOS DE ALMEIDA PRADO",
+      "Maria Fernanda Souza Lima",
+      "Pedro Henrique D'Ávila Neto",
+      "Gustavo Henrique Lacerda Pinto",
+      "Marcelo Tadeu Rangel",
+      "Ana Paula Ribeiro Costa",
+      "CARLOS EDUARDO MENDES",
+      "Antônio Carlos Ferreira de Melo",
+      "Renato Augusto Teixeira",
+      "Pedro Silva Santos"
+    ],
+    "companies": [],
+    "partial": {
+      "Pedro Henrique D'Ávila Neto": "Pedro Henrique",
+      "Gustavo Henrique Lacerda Pinto": "Gustavo Henrique"
+    }
+  }
+}

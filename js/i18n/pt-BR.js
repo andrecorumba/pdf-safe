@@ -61,6 +61,8 @@ export const i18n = {
   restoreTitle: 'Restaurar item',
   dismissedHeader: (n) => `🚫 Excluídos (${n})`,
   dismissedToggle: (shown) => `clique para ${shown ? 'ocultar' : 'ver'}`,
+  suggestionTag: 'sugestão de baixa confiança',
+  suggestionTitle: 'Detecção de baixa confiança: não será anonimizada, a menos que você restaure o item',
   toastDismissed: '🚫 Item excluído — não será anonimizado',
   toastRestored: '✅ Item restaurado',
 

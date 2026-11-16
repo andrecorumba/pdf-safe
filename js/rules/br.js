@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════
 //  REGEX DATABASE — Brazilian PII Detection
 // ═══════════════════════════════════════════════════
+import { detectNames } from '../names/br.js';
 
 // ── CPF / CNPJ VALIDATORS (reduce false positives on bare numbers) ──
 export function isValidCPF(cpf) {
@@ -172,55 +173,6 @@ export const REGEX_DB = [
     regex: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/gi,
     replacement: 'email@ocultado.com' },
 
-  // ── Nomes (com contexto para reduzir falsos positivos) ──
-  { id: 'nome_label', cat: 'nome', label: 'Nome',
-    regex: /(?:Nome(?:\s*Completo)?|Paciente|Requerente|Autor|Réu|Contratante|Contratado|Titular|Beneficiário|Responsável|Representante|Outorgante|Outorgado|Cônjuge|Genitor|Genitora|Mãe|Pai|Filho|Filha)(?!\w)\s*[:–\-]?\s*([A-ZÀ-ÚÇ][a-zà-úç]+(?:\s(?:d[aeo]s?|e))?(?:\s[A-ZÀ-ÚÇ][a-zà-úç]+){1,5})/gi,
-    replacement_fn: (m) => m.replace(/[:–\-]?\s*[A-ZÀ-ÚÇ][a-zà-úç].*$/, ': [NOME OCULTADO]'),
-    fullMatch: true },
-  { id: 'nome_caps', cat: 'nome', label: 'Nome (CAPS)',
-    regex: /\b[A-ZÀ-ÚÇ]{2,20}(?:\s(?:D[AEO]S?|E))?\s[A-ZÀ-ÚÇ]{2,20}(?:(?:\s(?:D[AEO]S?|E))?\s[A-ZÀ-ÚÇ]{2,20}){1,4}\b/g,
-    replacement: '[NOME OCULTADO]',
-    validate: (match) => {
-      const upper_stopwords = [
-        // Institutional
-        'PESSOA FISICA', 'PESSOA JURIDICA', 'RAZAO SOCIAL', 'NOME FANTASIA',
-        'DADOS PESSOAIS', 'REGISTRO GERAL', 'CARTEIRA DE IDENTIDADE', 'TITULO DE ELEITOR',
-        'CADASTRO NACIONAL', 'IMPOSTO DE RENDA', 'RECEITA FEDERAL', 'BANCO DO BRASIL',
-        'CAIXA ECONOMICA', 'PODER JUDICIARIO', 'MINISTERIO PUBLICO', 'TRIBUNAL DE JUSTICA',
-        'SECRETARIA DE ESTADO', 'PREFEITURA MUNICIPAL', 'GOVERNO DO ESTADO', 'REPUBLICA FEDERATIVA',
-        'DIARIO OFICIAL', 'NOTA FISCAL', 'ORDEM DOS ADVOGADOS',
-        // Contract / legal terms
-        'TERMO DE ADESAO', 'RESUMO DA COMPRA', 'PLANO FIDELIDADE', 'PLANO CONTRATADO',
-        'PLANO RECORRENCIA', 'PRAZO DE PERMANENCIA', 'TAXA DE MATRICULA', 'TAXA DE MANUTENCAO',
-        'FORMA DE PAGAMENTO', 'FORMAS DE CANCELAMENTO', 'ATRASO NO PAGAMENTO',
-        'CANCELAMENTO DO PLANO', 'CANCELAMENTO DURANTE', 'PERIODO DE TRANCAMENTO',
-        'NORMAS DE UTILIZACAO', 'QUADRO INFORMATIVO', 'VALORES PROMOCIONAIS',
-        'CONTRATACAO ELETRONICA', 'DECLARACAO DE SAUDE', 'PRIVACIDADE DE DADOS',
-        'POLITICA DE PRIVACIDADE', 'POLITICA DE REEMBOLSO', 'DIAS E HORARIOS',
-        'HORARIOS DE FUNCIONAMENTO', 'MENORES DE IDADE', 'PRAZO DE VIGENCIA',
-        'DATA DE INICIO', 'BENEFICIO COMERCIAL', 'PRAZO MINIMO',
-        'SHIFT FITNESS', 'ACADEMIAS DE GINASTICA', 'FITNESS ACADEMIAS',
-        // Generic section headers
-        'OBJETO', 'FORO', 'REAJUSTE', 'MENSALIDADES', 'TRANCAMENTO', 'COBRANCAS',
-        'OPCIONAL', 'CLIENTE', 'UNIDADE', 'ASSINATURA DO RESPONSAVEL',
-        // Other common institutional / non-name patterns
-        'MATO GROSSO', 'CAMPO GRANDE', 'SAO PAULO', 'RIO DE JANEIRO', 'BELO HORIZONTE',
-        'PORTO ALEGRE', 'MINAS GERAIS', 'ESPIRITO SANTO', 'SANTA CATARINA',
-        'RIO GRANDE', 'DISTRITO FEDERAL', 'PARQUE DOS',
-        'CONSELHO REGIONAL', 'ATIVIDADE FISICA', 'EXERCICIOS FISICOS'
-      ];
-      const up = match.toUpperCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // strip accents
-      if (upper_stopwords.some(s => up.includes(s))) return false;
-      if (match.length <= 6) return false;
-      // Must have at least one word with 3+ letters (avoid "MS AV" type fragments)
-      const words = match.split(/\s+/).filter(w => !/^(D[AEOI]S?|E|EM|NO|NA|DOS|DAS|DO|DA)$/i.test(w));
-      if (words.length < 2) return false;
-      if (words.some(w => w.length < 2)) return false;
-      return true;
-    }
-  },
-
   // ── Valores monetários ──
   { id: 'valor_rs', cat: 'financeiro', label: 'R$',
     regex: /R\$\s*\d{1,3}(?:\.\d{3})*,\d{2}/g,
@@ -263,6 +215,11 @@ export const REGEX_DB = [
     replacement: 'IE: XXXXXXXXXXXX', fullMatch: true },
 ];
 
+// Person and company names are not regex rules: they depend on neighbouring
+// lines and on earlier findings, so they run as function detectors.
+// See js/names/br.js.
+export const DETECTORS = [detectNames];
+
 // Category metadata.
 //   label    — plural form, used in filter chips and the summary bar
 //   singular — used on the type pill of manually added findings
@@ -274,6 +231,7 @@ export const CATEGORIES = {
   cnpj:       { label: 'CNPJ',       singular: 'CNPJ',       icon: '🏢', tone: 'purple',  summary: 'sc-danger' },
   rg:         { label: 'RG',         singular: 'RG',         icon: '🆔', tone: 'warn',    summary: 'sc-warn' },
   nome:       { label: 'Nomes',      singular: 'Nome',       icon: '👤', tone: 'info',    summary: 'sc-info' },
+  empresa:    { label: 'Empresa',    singular: 'Empresa',    icon: '🏭', tone: 'teal',    summary: 'sc-info' },
   endereco:   { label: 'Endereço',   singular: 'Endereço',   icon: '📍', tone: 'cyan',    summary: 'sc-info' },
   cep:        { label: 'CEP',        singular: 'CEP',        icon: '📮', tone: 'success', summary: 'sc-success' },
   telefone:   { label: 'Telefone',   singular: 'Telefone',   icon: '📞', tone: 'accent',  summary: 'sc-warn' },
@@ -286,7 +244,7 @@ export const CATEGORIES = {
 
 // Categories offered in the manual-selection dropdown, in display order.
 export const MANUAL_CATEGORIES = [
-  'cpf', 'cnpj', 'rg', 'nome', 'endereco', 'email',
+  'cpf', 'cnpj', 'rg', 'nome', 'empresa', 'endereco', 'email',
   'telefone', 'financeiro', 'data', 'documento', 'manual',
 ];
 

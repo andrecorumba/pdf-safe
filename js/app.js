@@ -12,6 +12,7 @@ const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf
 
 export function boot({ rules, i18n: t, locale }) {
   const { REGEX_DB, CATEGORIES, MANUAL_CATEGORIES, headingPattern } = rules;
+  const DETECTORS = rules.DETECTORS ?? [];
 
   // ═══════════════════════════════════════════════════
   //  MOUNT
@@ -31,7 +32,8 @@ export function boot({ rules, i18n: t, locale }) {
   let anonymizedMarkdown = '';
   let isAnonymized = false;
   let activeFilters = new Set(Object.keys(CATEGORIES));
-  let dismissed = new Set();    // indices of dismissed findings (false positives)
+  let dismissed = new Set();    // indices of dismissed findings: the user's, plus low-confidence suggestions
+  let userDismissed = new Set(); // subset of `dismissed` the user dismissed by hand (not untouched suggestions)
   let showDismissed = false;    // toggle collapsed section
   let currentView = 'highlighted';
 
@@ -122,13 +124,19 @@ export function boot({ rules, i18n: t, locale }) {
       procText.textContent = t.detectingData;
       progFill.style.width = '90%';
 
-      findings = detectSensitiveData(markdownText, REGEX_DB);
+      findings = detectSensitiveData(markdownText, REGEX_DB, DETECTORS);
+
+      // Low-confidence findings start dismissed: the user restores the ones they want.
+      dismissed = new Set();
+      userDismissed = new Set();
+      findings.forEach((f, i) => { if (f.confidence === 'low') dismissed.add(i); });
+      const activeFindings = findings.filter((_, i) => !dismissed.has(i));
 
       progFill.style.width = '100%';
-      procText.textContent = t.processingDone(findings.length);
+      procText.textContent = t.processingDone(activeFindings.length);
 
-      $('statFindings').textContent = findings.length;
-      $('statCategories').textContent = new Set(findings.map(f => f.cat)).size;
+      $('statFindings').textContent = activeFindings.length;
+      $('statCategories').textContent = new Set(activeFindings.map(f => f.cat)).size;
       $('statPages').textContent = totalPages;
       $('headerStats').style.display = 'flex';
 
@@ -337,9 +345,11 @@ export function boot({ rules, i18n: t, locale }) {
       html += `<div class="dismissed-section" style="display:${showDismissed ? 'block' : 'none'};">`;
       for (const f of dismissedVisible) {
         const idx = findings.indexOf(f);
-        html += `<div class="finding-item dismissed">
+        const isSuggestion = f.confidence === 'low' && !userDismissed.has(idx);
+        html += `<div class="finding-item dismissed${isSuggestion ? ' suggested' : ''}">
           <span class="finding-type ${toneOf(f.cat)}">${escapeHTML(f.label)}</span>
           <span class="finding-value" title="${escapeAttr(f.value)}">${escapeHTML(f.value)}</span>
+          ${isSuggestion ? `<span class="finding-suggestion" title="${escapeAttr(t.suggestionTitle)}">${escapeHTML(t.suggestionTag)}</span>` : ''}
           <button class="finding-restore" data-restore="${idx}" title="${t.restoreTitle}">+</button>
         </div>`;
       }
@@ -409,6 +419,7 @@ export function boot({ rules, i18n: t, locale }) {
 
   function dismissFinding(idx, row) {
     dismissed.add(idx);
+    userDismissed.add(idx);
     setRowDismissed(row, idx, true);
     updateHeaderStats();
     renderContent();
@@ -418,6 +429,7 @@ export function boot({ rules, i18n: t, locale }) {
 
   function restoreFinding(idx, row) {
     dismissed.delete(idx);
+    userDismissed.delete(idx);
     setRowDismissed(row, idx, false);
     updateHeaderStats();
     renderContent();
@@ -504,6 +516,7 @@ export function boot({ rules, i18n: t, locale }) {
     isAnonymized = false;
     activeFilters = new Set(Object.keys(CATEGORIES));
     dismissed = new Set();
+    userDismissed = new Set();
     showDismissed = false;
     currentView = 'highlighted';
 
